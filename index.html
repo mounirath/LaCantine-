@@ -1,1360 +1,1054 @@
 <!DOCTYPE html>
-<html lang="fr" class="h-full">
+<html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestion de Cantine & Restauration Cloud (Supabase)</title>
-    <!-- Tailwind CSS -->
+    <title>Gestion de Cantine - ESSTS</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Supabase JS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- QRCode Generator (QRCode.js) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- SheetJS (xlsx) for Excel Export/Import -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- jsPDF & AutoTable for PDF Export & Badges -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Google Fonts Inter -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Supabase JS Client -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        @media print {
-            .no-print { display: none !important; }
-            .print-only { display: block !important; }
-            body { background: white !important; }
-        }
-    </style>
 </head>
-<body class="h-full bg-slate-50 text-slate-800 flex flex-col">
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
 
-    <div id="app" class="flex flex-col h-full overflow-hidden">
+    <!-- En-tête Global avec Menu Hamburger & Logo ESSTS -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <!-- Bouton Hamburger Accessible -->
+                <button id="menu-btn" 
+                        aria-expanded="false" 
+                        aria-controls="navigation-drawer" 
+                        aria-label="Ouvrir le menu de navigation"
+                        class="relative p-2.5 rounded-xl hover:bg-slate-100 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors flex flex-col justify-center items-center w-10 h-10">
+                    <span class="hamburger-bar block w-5 h-0.5 bg-slate-700 rounded-full transition-all duration-300 transform origin-center -translate-y-1.5"></span>
+                    <span class="hamburger-bar block w-5 h-0.5 bg-slate-700 rounded-full transition-all duration-300 transform origin-center"></span>
+                    <span class="hamburger-bar block w-5 h-0.5 bg-slate-700 rounded-full transition-all duration-300 transform origin-center translate-y-1.5"></span>
+                </button>
+                
+                <div class="flex items-center space-x-2">
+                    <img src="1000511444.jpg" alt="Logo ESSTS" class="h-8 w-auto object-contain">
+                    <div>
+                        <h1 class="text-sm font-bold leading-tight text-slate-900">Cantine ESSTS</h1>
+                        <p class="text-[9px] text-slate-400">المدرسة العليا لعلوم الرياضة وتكنولوجياتها</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="user-status-bar" class="flex items-center space-x-3">
+                <span id="current-user-badge" class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-semibold">Non connecté</span>
+                <button onclick="openConfigModal()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg transition" title="Configurer Supabase">
+                    <i class="fa-solid fa-database mr-1"></i> Supabase
+                </button>
+                <button id="logout-btn" onclick="logout()" class="hidden bg-rose-50 hover:bg-rose-100 text-rose-600 px-3 py-1.5 rounded-lg text-xs font-medium transition">
+                    <i class="fa-solid fa-right-from-bracket mr-1"></i> Déconnexion
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Scrim (Fond semi-transparent pour le Drawer) -->
+    <div id="drawer-scrim" 
+         class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 transition-opacity duration-300 opacity-0 pointer-events-none"
+         aria-hidden="true"></div>
+
+    <!-- Panneau de Navigation Coulissant (Drawer - Side Left) -->
+    <nav id="navigation-drawer" 
+         aria-label="Navigation principale"
+         class="fixed inset-y-0 left-0 w-80 max-w-[85vw] bg-white shadow-2xl z-50 flex flex-col transform -translate-x-full transition-transform duration-300 ease-in-out">
         
-        <!-- Top Navbar -->
-        <header class="bg-indigo-600 text-white shadow-md z-10 flex items-center justify-between px-6 py-4 no-print">
-            <div class="flex items-center space-x-3">
-                <div class="bg-white text-indigo-600 p-2 rounded-xl shadow">
-                    <i class="fa-solid fa-utensils text-xl"></i>
+        <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <img src="1000511444.jpg" alt="Logo" class="h-7 w-auto object-contain">
+                <span class="font-bold text-slate-900 text-sm">Navigation ESSTS</span>
+            </div>
+            <button id="drawer-close-btn" 
+                    aria-label="Fermer le menu"
+                    class="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+
+        <div class="flex-grow p-4 space-y-1 overflow-y-auto text-sm">
+            <a href="#" onclick="toggleDrawer(false)" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 font-medium transition-colors">
+                <i class="fa-solid fa-house w-5 text-indigo-600"></i> Accueil / Menu
+            </a>
+            <a href="#" onclick="openConfigModal(); toggleDrawer(false);" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 font-medium transition-colors">
+                <i class="fa-solid fa-database w-5 text-indigo-600"></i> Configuration Base de Données
+            </a>
+        </div>
+
+        <div class="p-4 border-t border-slate-100 bg-slate-50">
+            <p class="text-[11px] text-slate-400 text-center">ESSTS Cantine Management • v2.0</p>
+        </div>
+    </nav>
+
+    <!-- Écran de Connexion / Choix du Rôle -->
+    <main id="auth-screen" class="flex-grow flex items-center justify-center p-4">
+        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-100 text-center">
+            <div class="mb-6 flex flex-col items-center">
+                <div class="bg-indigo-50/50 p-4 rounded-2xl mb-3 border border-indigo-100">
+                    <img src="1000511444.jpg" alt="Logo ESSTS" class="h-20 w-auto object-contain">
                 </div>
+                <h2 class="text-2xl font-bold text-slate-900">Gestion de Cantine</h2>
+                <p class="text-xs text-indigo-600 font-semibold mt-0.5">ESSTS - المدرسة العليا لعلوم الرياضة وتكنولوجياتها</p>
+                <p class="text-xs text-slate-400 mt-1">Connectez-vous avec votre code personnel</p>
+            </div>
+
+            <div class="space-y-4 text-left">
                 <div>
-                    <h1 class="text-lg font-bold tracking-tight">CantineApp Cloud</h1>
-                    <p class="text-xs text-indigo-200 flex items-center space-x-1.5">
-                        <span id="dbStatusIndicator" class="w-2 h-2 rounded-full bg-amber-400 inline-block"></span>
-                        <span id="dbStatusText">Mode Local (Sauvegarde en attente Supabase)</span>
-                    </p>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Code Utilisateur (ex: USER-1001)</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="login-user-code" placeholder="Entrez votre code..." class="flex-grow border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none uppercase">
+                        <button onclick="loginAsUser()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+                            Connexion
+                        </button>
+                    </div>
                 </div>
+
+                <div class="relative flex py-2 items-center">
+                    <div class="flex-grow border-t border-slate-200"></div>
+                    <span class="flex-shrink mx-4 text-slate-400 text-xs uppercase">Ou</span>
+                    <div class="flex-grow border-t border-slate-200"></div>
+                </div>
+
+                <button onclick="loginAsAdminPrompt()" class="w-full bg-slate-900 hover:bg-slate-800 text-white py-2.5 rounded-lg text-sm font-medium transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-shield-halved"></i> Espace Administrateur
+                </button>
             </div>
             
-            <div class="flex items-center space-x-4">
-                <button onclick="openSupabaseModal()" class="bg-indigo-700 hover:bg-indigo-800 text-indigo-100 px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center space-x-1.5 border border-indigo-500">
-                    <i class="fa-solid fa-database"></i>
-                    <span>Configurer Supabase</span>
-                </button>
-                <div id="userInfoHeader" class="hidden md:flex items-center space-x-2 bg-indigo-700/60 px-3 py-1.5 rounded-lg text-sm">
-                    <i class="fa-solid fa-user-circle"></i>
-                    <span id="headerUserName">Utilisateur</span>
-                    <span id="headerUserBadge" class="bg-indigo-500 text-xs px-2 py-0.5 rounded-full uppercase">User</span>
-                </div>
-                <button onclick="appState.logout()" class="bg-indigo-500 hover:bg-indigo-400 text-white px-3.5 py-2 rounded-lg text-sm font-medium transition flex items-center space-x-1.5 shadow-sm">
-                    <i class="fa-solid fa-right-from-bracket"></i>
-                    <span>Déconnexion</span>
-                </button>
+            <div class="mt-6 text-center">
+                <p class="text-xs text-slate-400" id="db-mode-indicator">Mode stockage : Local / Mémoire (Configurer Supabase si besoin)</p>
             </div>
-        </header>
+        </div>
+    </main>
 
-        <!-- Main Workspace container -->
-        <div class="flex-1 flex overflow-hidden">
-            
-            <!-- AUTHENTICATION VIEW -->
-            <div id="authView" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100 animate-fadeIn">
-                    <div class="bg-gradient-to-r from-indigo-600 to-indigo-700 p-6 text-white text-center">
-                        <div class="inline-flex bg-white/10 p-3 rounded-2xl mb-2 backdrop-blur-md">
-                            <i class="fa-solid fa-utensils text-3xl"></i>
-                        </div>
-                        <h2 class="text-2xl font-bold">Connexion Cantine Cloud</h2>
-                        <p class="text-indigo-200 text-sm mt-1">Identifiez-vous pour commander vos repas</p>
+    <!-- Interface Utilisateur (Client) -->
+    <div id="user-app" class="hidden flex-grow max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 space-y-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-slate-900"><i class="fa-solid fa-calendar-day text-indigo-600 mr-2"></i> Menus du Jour</h2>
+                    <span id="today-date-display" class="text-sm font-medium text-slate-500"></span>
+                </div>
+                <div id="menus-container" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <h2 class="text-xl font-bold text-slate-900 mb-4"><i class="fa-solid fa-qrcode text-indigo-600 mr-2"></i> Mon QR Code Personnel</h2>
+                <div class="flex flex-col sm:flex-row items-center gap-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <div id="user-qrcode-container" class="bg-white p-3 rounded-lg shadow-inner flex justify-center"></div>
+                    <div class="text-center sm:text-left space-y-2 flex-grow">
+                        <p class="text-sm font-medium text-slate-700" id="qr-user-info">Chargement...</p>
+                        <p class="text-xs text-slate-500">Présentez ce QR code au réfectoire pour récupérer votre repas validé.</p>
+                        <button onclick="downloadMyQRCode()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3.5 py-2 rounded-lg transition shadow-sm">
+                            <i class="fa-solid fa-download mr-1"></i> Télécharger mon QR Code
+                        </button>
                     </div>
-                    
-                    <div class="p-6 space-y-4">
-                        <div class="flex bg-slate-100 p-1 rounded-xl mb-4">
-                            <button onclick="switchAuthTab('user')" id="authTabUser" class="flex-1 py-2 text-sm font-medium rounded-lg transition bg-white shadow-sm text-indigo-600">Utilisateur</button>
-                            <button onclick="switchAuthTab('admin')" id="authTabAdmin" class="flex-1 py-2 text-sm font-medium rounded-lg transition text-slate-600">Administrateur</button>
-                        </div>
+                </div>
+            </div>
+        </div>
 
-                        <!-- User Login Form -->
-                        <form id="userLoginForm" onsubmit="handleUserLogin(event)" class="space-y-4">
-                            <div>
-                                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Votre Code ID / Badge</label>
-                                <div class="relative">
-                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400"><i class="fa-solid fa-id-card"></i></span>
-                                    <input type="text" id="loginUserId" required placeholder="Ex: USER-1001" class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
-                                </div>
-                            </div>
-                            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-xl transition shadow-lg shadow-indigo-200">
-                                Accéder à mon espace
-                            </button>
-                            <div class="text-center pt-2">
-                                <p class="text-xs text-slate-400">Exemple par défaut : <strong>USER-1001</strong></p>
-                            </div>
-                        </form>
-
-                        <!-- Admin Login Form -->
-                        <form id="adminLoginForm" onsubmit="handleAdminLogin(event)" class="space-y-4 hidden">
-                            <div>
-                                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Identifiant Admin</label>
-                                <div class="relative">
-                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400"><i class="fa-solid fa-user-shield"></i></span>
-                                    <input type="text" id="adminUser" value="admin" required class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
-                                </div>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Mot de passe</label>
-                                <div class="relative">
-                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400"><i class="fa-solid fa-lock"></i></span>
-                                    <input type="password" id="adminPass" value="admin123" required class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
-                                </div>
-                            </div>
-                            <button type="submit" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-medium py-2.5 rounded-xl transition shadow-lg">
-                                Connexion Administration
-                            </button>
-                            <div class="text-center pt-2">
-                                <p class="text-xs text-slate-400">Par défaut : <strong>admin</strong> / <strong>admin123</strong></p>
-                            </div>
-                        </form>
+        <div class="space-y-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <h2 class="text-xl font-bold text-slate-900 mb-4"><i class="fa-solid fa-utensils text-indigo-600 mr-2"></i> Récupérer un Repas</h2>
+                <div class="space-y-4">
+                    <p class="text-xs text-slate-500">Scannez le QR code du réfectoire ou validez le retrait de votre repas réservé.</p>
+                    <div class="p-4 bg-indigo-50 border border-indigo-100 rounded-xl text-center space-y-3">
+                        <div class="text-indigo-600 text-3xl"><i class="fa-solid fa-qrcode"></i></div>
+                        <p class="text-sm font-semibold text-indigo-900">Point de retrait Réfectoire ESSTS</p>
+                        <button onclick="openCanteenScannerModal()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg text-sm font-medium transition shadow-sm">
+                            Scanner / Récupérer mon repas
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <!-- Sidebar Navigation -->
-            <aside id="sidebarNav" class="w-64 bg-white border-r border-slate-200 flex flex-col justify-between no-print hidden">
-                <div class="p-4 space-y-1">
-                    <div class="text-xs font-bold uppercase tracking-wider text-slate-400 px-3 py-2">Menu Principal</div>
-                    
-                    <button onclick="switchView('user-menu')" id="nav-user-menu" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm font-medium transition text-slate-600 hover:bg-slate-100">
-                        <i class="fa-solid fa-book-open w-5 text-indigo-600"></i>
-                        <span>Menu du Jour</span>
-                    </button>
-                    
-                    <button onclick="switchView('user-reserve')" id="nav-user-reserve" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm font-medium transition text-slate-600 hover:bg-slate-100">
-                        <i class="fa-solid fa-ticket w-5 text-indigo-600"></i>
-                        <span>Réservation QR Code</span>
-                    </button>
-                    
-                    <button onclick="switchView('user-pickup')" id="nav-user-pickup" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm font-medium transition text-slate-600 hover:bg-slate-100">
-                        <i class="fa-solid fa-qrcode w-5 text-indigo-600"></i>
-                        <span>Récupérer mon Repas</span>
-                    </button>
-
-                    <div id="adminNavSection" class="pt-4 hidden">
-                        <div class="text-xs font-bold uppercase tracking-wider text-slate-400 px-3 py-2">Administration</div>
-                        
-                        <button onclick="switchView('admin-dashboard')" id="nav-admin-dashboard" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm font-medium transition text-slate-600 hover:bg-slate-100">
-                            <i class="fa-solid fa-chart-pie w-5 text-indigo-600"></i>
-                            <span>Tableau de Bord</span>
-                        </button>
-
-                        <button onclick="switchView('admin-users')" id="nav-admin-users" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm font-medium transition text-slate-600 hover:bg-slate-100">
-                            <i class="fa-solid fa-users w-5 text-indigo-600"></i>
-                            <span>Gestion Utilisateurs</span>
-                        </button>
-
-                        <button onclick="switchView('admin-menus')" id="nav-admin-menus" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm font-medium transition text-slate-600 hover:bg-slate-100">
-                            <i class="fa-solid fa-utensils w-5 text-indigo-600"></i>
-                            <span>Gestion des Menus</span>
-                        </button>
-
-                        <button onclick="switchView('admin-settings')" id="nav-admin-settings" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm font-medium transition text-slate-600 hover:bg-slate-100">
-                            <i class="fa-solid fa-clock-rotate-left w-5 text-indigo-600"></i>
-                            <span>Horaires & Contrôles</span>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="p-4 border-t border-slate-100">
-                    <div class="bg-indigo-50 p-3 rounded-xl border border-indigo-100 text-xs text-indigo-700 flex items-center justify-between">
-                        <div>
-                            <span class="font-bold block">Réfectoire Central</span>
-                            <span id="refectoireStatus" class="text-emerald-600 font-medium">● Ouvert</span>
-                        </div>
-                        <button onclick="openRefectoireQrModal()" class="bg-white hover:bg-indigo-600 hover:text-white p-2 rounded-lg shadow-sm transition text-indigo-600 border border-indigo-200" title="QR Code du Réfectoire">
-                            <i class="fa-solid fa-qrcode"></i>
-                        </button>
-                    </div>
-                </div>
-            </aside>
-
-            <!-- Main Viewport Area -->
-            <main class="flex-1 overflow-y-auto bg-slate-50 p-6 md:p-8">
-                
-                <!-- 1. USER MENU VIEW -->
-                <section id="view-user-menu" class="app-view space-y-6 max-w-5xl mx-auto hidden">
-                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                        <div>
-                            <h2 class="text-2xl font-bold tracking-tight text-slate-900">Menus de la Semaine</h2>
-                            <p class="text-sm text-slate-500">Consultez les repas proposés et commandez en un clic.</p>
-                        </div>
-                        <div class="flex items-center space-x-2 bg-white p-1.5 rounded-xl border border-slate-200 shadow-sm">
-                            <span class="text-xs font-semibold px-2 text-slate-400 uppercase">Jour :</span>
-                            <select id="menuDaySelector" onchange="renderUserMenu()" class="bg-slate-50 border-0 text-sm font-medium rounded-lg px-3 py-1.5 focus:ring-0 cursor-pointer">
-                                <option value="Lundi">Lundi</option>
-                                <option value="Mardi">Mardi</option>
-                                <option value="Mercredi">Mercredi</option>
-                                <option value="Jeudi">Jeudi</option>
-                                <option value="Vendredi">Vendredi</option>
-                                <option value="Samedi">Samedi</option>
-                                <option value="Dimanche">Dimanche</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div id="userMenuContainer" class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <!-- Dynamically populated -->
-                    </div>
-                </section>
-
-                <!-- 2. USER RESERVATION VIEW -->
-                <section id="view-user-reserve" class="app-view space-y-6 max-w-4xl mx-auto hidden">
-                    <div>
-                        <h2 class="text-2xl font-bold tracking-tight text-slate-900">Réservation de Repas par QR Code</h2>
-                        <p class="text-sm text-slate-500">Générez un QR code unique pour votre réservation cloud.</p>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div class="md:col-span-1 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-                            <h3 class="font-bold text-slate-800 border-b pb-2 flex items-center space-x-2">
-                                <i class="fa-solid fa-calendar-check text-indigo-600"></i>
-                                <span>Nouvelle Réservation</span>
-                            </h3>
-                            
-                            <form id="reservationForm" onsubmit="handleCreateReservation(event)" class="space-y-4">
-                                <div>
-                                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Date du repas</label>
-                                    <input type="date" id="resDate" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                                </div>
-
-                                <div>
-                                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Type de repas</label>
-                                    <select id="resMealType" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                                        <option value="petit-dejeuner">Petit-déjeuner</option>
-                                        <option value="dejeuner">Déjeuner</option>
-                                        <option value="diner">Dîner</option>
-                                    </select>
-                                </div>
-
-                                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-xl transition shadow-sm text-sm">
-                                    Réserver & Générer QR Code
-                                </button>
-                            </form>
-                        </div>
-
-                        <div class="md:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-                            <h3 class="font-bold text-slate-800 border-b pb-2 flex items-center justify-between">
-                                <span class="flex items-center space-x-2">
-                                    <i class="fa-solid fa-list-check text-indigo-600"></i>
-                                    <span>Mes Réservations Actives</span>
-                                </span>
-                                <span id="reservationCountBadge" class="bg-indigo-50 text-indigo-600 text-xs px-2.5 py-1 rounded-full font-bold">0</span>
-                            </h3>
-
-                            <div id="userReservationsList" class="space-y-3 max-h-96 overflow-y-auto pr-1">
-                                <!-- Loaded dynamically -->
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- 3. USER PICKUP VIEW -->
-                <section id="view-user-pickup" class="app-view space-y-6 max-w-3xl mx-auto hidden">
-                    <div class="text-center space-y-2">
-                        <h2 class="text-2xl font-bold tracking-tight text-slate-900">Récupérer mon Repas</h2>
-                        <p class="text-sm text-slate-500">Présentez votre QR code ou simulez le scan au réfectoire.</p>
-                    </div>
-
-                    <div class="bg-white p-8 rounded-3xl border border-slate-200 shadow-lg text-center space-y-6 max-w-md mx-auto">
-                        <div class="inline-block bg-indigo-50 p-4 rounded-2xl">
-                            <div id="userPersonalQrDisplay" class="bg-white p-4 rounded-xl border border-indigo-100 shadow-inner flex justify-center items-center">
-                                <!-- SVG QR Code render -->
-                            </div>
-                        </div>
-                        <div>
-                            <h3 id="pickupUserName" class="font-bold text-lg text-slate-800">Nom Utilisateur</h3>
-                            <p id="pickupUserCode" class="text-xs font-mono text-indigo-600 bg-indigo-50 inline-block px-3 py-1 rounded-full mt-1">USER-0000</p>
-                        </div>
-
-                        <div class="border-t pt-4 text-left space-y-3">
-                            <div class="text-xs font-bold uppercase tracking-wider text-slate-400">Simulation de Retrait</div>
-                            <button onclick="simulateScanPickup()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3 rounded-xl transition flex items-center justify-center space-x-2 shadow-sm text-sm">
-                                <i class="fa-solid fa-qrcode"></i>
-                                <span>Scanner le QR Code du Réfectoire</span>
-                            </button>
-                            <p class="text-xs text-slate-400 text-center">Valide le repas réservé et enregistre le log de scan dans Supabase.</p>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- 4. ADMIN DASHBOARD VIEW -->
-                <section id="view-admin-dashboard" class="app-view space-y-6 max-w-6xl mx-auto hidden">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <h2 class="text-2xl font-bold tracking-tight text-slate-900">Tableau de Bord Administratif</h2>
-                            <p class="text-sm text-slate-500">Statistiques en temps réel et logs de scan cloud.</p>
-                        </div>
-                        <button onclick="refreshDataFromCloud()" class="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-xl text-sm font-medium transition shadow-sm flex items-center space-x-2">
-                            <i class="fa-solid fa-rotate-right"></i>
-                            <span>Rafraîchir Cloud</span>
-                        </button>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
-                            <div class="bg-indigo-50 text-indigo-600 p-3.5 rounded-xl"><i class="fa-solid fa-users text-xl"></i></div>
-                            <div>
-                                <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Utilisateurs</div>
-                                <div id="statTotalUsers" class="text-2xl font-bold text-slate-800">0</div>
-                            </div>
-                        </div>
-                        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
-                            <div class="bg-emerald-50 text-emerald-600 p-3.5 rounded-xl"><i class="fa-solid fa-ticket text-xl"></i></div>
-                            <div>
-                                <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Réservations</div>
-                                <div id="statTotalRes" class="text-2xl font-bold text-slate-800">0</div>
-                            </div>
-                        </div>
-                        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
-                            <div class="bg-amber-50 text-amber-600 p-3.5 rounded-xl"><i class="fa-solid fa-check-to-slot text-xl"></i></div>
-                            <div>
-                                <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Repas Servis</div>
-                                <div id="statTotalServed" class="text-2xl font-bold text-slate-800">0</div>
-                            </div>
-                        </div>
-                        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
-                            <div class="bg-purple-50 text-purple-600 p-3.5 rounded-xl"><i class="fa-solid fa-utensils text-xl"></i></div>
-                            <div>
-                                <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Menus Semaine</div>
-                                <div id="statTotalMenus" class="text-2xl font-bold text-slate-800">7 Jours</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Recent Pickups / Scans Activity -->
-                    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-                        <h3 class="font-bold text-slate-800 border-b pb-2 flex items-center space-x-2">
-                            <i class="fa-solid fa-clock-rotate-left text-indigo-600"></i>
-                            <span>Logs de Scan et Retraits Récents</span>
-                        </h3>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse text-sm">
-                                <thead>
-                                    <tr class="border-b text-xs font-semibold uppercase tracking-wider text-slate-400">
-                                        <th class="py-3 px-4">Utilisateur / Réservation ID</th>
-                                        <th class="py-3 px-4">Repas</th>
-                                        <th class="py-3 px-4">Date & Heure de Retrait</th>
-                                        <th class="py-3 px-4">Statut</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="adminPickupsTableBody" class="divide-y">
-                                    <!-- Populated dynamically -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- 5. ADMIN USERS MANAGEMENT VIEW -->
-                <section id="view-admin-users" class="app-view space-y-6 max-w-6xl mx-auto hidden">
-                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                        <div>
-                            <h2 class="text-2xl font-bold tracking-tight text-slate-900">Gestion des Utilisateurs & Badges</h2>
-                            <p class="text-sm text-slate-500">Ajout, modification, import/export et génération de badges QR.</p>
-                        </div>
-                        <div class="flex flex-wrap items-center gap-2">
-                            <button onclick="openUserModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition shadow-sm flex items-center space-x-2">
-                                <i class="fa-solid fa-user-plus"></i>
-                                <span>Nouvel Utilisateur</span>
-                            </button>
-                            <button onclick="exportUsersExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-sm font-medium transition shadow-sm flex items-center space-x-1.5" title="Exporter en Excel / CSV">
-                                <i class="fa-solid fa-file-excel"></i>
-                                <span>Excel</span>
-                            </button>
-                            <button onclick="exportUsersPDF()" class="bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-2 rounded-xl text-sm font-medium transition shadow-sm flex items-center space-x-1.5" title="Exporter en PDF">
-                                <i class="fa-solid fa-file-pdf"></i>
-                                <span>PDF</span>
-                            </button>
-                            <label class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3.5 py-2 rounded-xl text-sm font-medium transition shadow-sm cursor-pointer flex items-center space-x-1.5">
-                                <i class="fa-solid fa-file-arrow-up"></i>
-                                <span>Importer</span>
-                                <input type="file" id="importFile" accept=".json,.csv" onchange="importUsersFile(event)" class="hidden">
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- Search bar -->
-                    <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between gap-4">
-                        <div class="relative flex-1">
-                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400"><i class="fa-solid fa-search"></i></span>
-                            <input type="text" id="userSearchInput" oninput="renderAdminUsersTable()" placeholder="Rechercher par nom, email ou code badge..." class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                        </div>
-                        <button onclick="downloadAllBadges()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-4 py-2 rounded-xl text-sm font-medium transition border border-indigo-200 flex items-center space-x-2">
-                            <i class="fa-solid fa-id-badge"></i>
-                            <span>Télécharger Liste & Badges (Impression)</span>
-                        </button>
-                    </div>
-
-                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse text-sm">
-                                <thead>
-                                    <tr class="bg-slate-50 border-b text-xs font-semibold uppercase tracking-wider text-slate-400">
-                                        <th class="py-3.5 px-4">Utilisateur</th>
-                                        <th class="py-3.5 px-4">Email</th>
-                                        <th class="py-3.5 px-4">Code Badge / ID</th>
-                                        <th class="py-3.5 px-4">Rôle</th>
-                                        <th class="py-3.5 px-4">QR Code</th>
-                                        <th class="py-3.5 px-4 text-right">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="adminUsersTableBody" class="divide-y">
-                                    <!-- Populated dynamically -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- 6. ADMIN MENUS MANAGEMENT VIEW -->
-                <section id="view-admin-menus" class="app-view space-y-6 max-w-6xl mx-auto hidden">
-                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                        <div>
-                            <h2 class="text-2xl font-bold tracking-tight text-slate-900">Gestion des Menus Cloud</h2>
-                            <p class="text-sm text-slate-500">Configurez les repas synchronisés dans Supabase.</p>
-                        </div>
-                        <div class="flex items-center space-x-2 bg-white p-1.5 rounded-xl border border-slate-200 shadow-sm">
-                            <span class="text-xs font-semibold px-2 text-slate-400 uppercase">Jour :</span>
-                            <select id="adminMenuDaySelect" onchange="renderAdminMenus()" class="bg-slate-50 border-0 text-sm font-medium rounded-lg px-3 py-1.5 focus:ring-0 cursor-pointer">
-                                <option value="Lundi">Lundi</option>
-                                <option value="Mardi">Mardi</option>
-                                <option value="Mercredi">Mercredi</option>
-                                <option value="Jeudi">Jeudi</option>
-                                <option value="Vendredi">Vendredi</option>
-                                <option value="Samedi">Samedi</option>
-                                <option value="Dimanche">Dimanche</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="adminMenusGrid">
-                        <!-- Populated dynamically -->
-                    </div>
-                </section>
-
-                <!-- 7. ADMIN SETTINGS & TIME WINDOWS VIEW -->
-                <section id="view-admin-settings" class="app-view space-y-6 max-w-4xl mx-auto hidden">
-                    <div>
-                        <h2 class="text-2xl font-bold tracking-tight text-slate-900">Horaires et Contrôles d'Affichage</h2>
-                        <p class="text-sm text-slate-500">Définissez les créneaux stricts et l'affichage des menus et services.</p>
-                    </div>
-
-                    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
-                        <form onsubmit="saveSettings(event)" class="space-y-6">
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <!-- Petit Dejeuner Time -->
-                                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
-                                    <div class="flex items-center justify-between">
-                                        <h3 class="font-bold text-slate-800 text-sm">Petit-déjeuner</h3>
-                                        <label class="relative inline-flex items-center cursor-pointer">
-                                            <input type="checkbox" id="show_petit-dejeuner" class="sr-only peer" checked>
-                                            <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
-                                        </label>
-                                    </div>
-                                    <div class="grid grid-cols-2 gap-2">
-                                        <div>
-                                            <label class="block text-[10px] uppercase font-semibold text-slate-400">Début</label>
-                                            <input type="time" id="start_petit-dejeuner" value="07:00" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs">
-                                        </div>
-                                        <div>
-                                            <label class="block text-[10px] uppercase font-semibold text-slate-400">Fin</label>
-                                            <input type="time" id="end_petit-dejeuner" value="09:30" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs">
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Dejeuner Time -->
-                                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
-                                    <div class="flex items-center justify-between">
-                                        <h3 class="font-bold text-slate-800 text-sm">Déjeuner</h3>
-                                        <label class="relative inline-flex items-center cursor-pointer">
-                                            <input type="checkbox" id="show_dejeuner" class="sr-only peer" checked>
-                                            <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
-                                        </label>
-                                    </div>
-                                    <div class="grid grid-cols-2 gap-2">
-                                        <div>
-                                            <label class="block text-[10px] uppercase font-semibold text-slate-400">Début</label>
-                                            <input type="time" id="start_dejeuner" value="11:30" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs">
-                                        </div>
-                                        <div>
-                                            <label class="block text-[10px] uppercase font-semibold text-slate-400">Fin</label>
-                                            <input type="time" id="end_dejeuner" value="14:00" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs">
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Diner Time -->
-                                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
-                                    <div class="flex items-center justify-between">
-                                        <h3 class="font-bold text-slate-800 text-sm">Dîner</h3>
-                                        <label class="relative inline-flex items-center cursor-pointer">
-                                            <input type="checkbox" id="show_diner" class="sr-only peer" checked>
-                                            <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
-                                        </label>
-                                    </div>
-                                    <div class="grid grid-cols-2 gap-2">
-                                        <div>
-                                            <label class="block text-[10px] uppercase font-semibold text-slate-400">Début</label>
-                                            <input type="time" id="start_diner" value="18:30" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs">
-                                        </div>
-                                        <div>
-                                            <label class="block text-[10px] uppercase font-semibold text-slate-400">Fin</label>
-                                            <input type="time" id="end_diner" value="21:00" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="flex justify-end pt-4 border-t">
-                                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-2.5 rounded-xl transition shadow-sm text-sm">
-                                    Enregistrer les Paramètres Cloud
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </section>
-
-            </main>
-        </div>
-
-        <!-- SUPABASE CONFIGURATION MODAL -->
-        <div id="supabaseModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-                <div class="bg-indigo-600 p-4 text-white flex items-center justify-between">
-                    <h3 class="font-bold flex items-center space-x-2"><i class="fa-solid fa-database"></i><span>Configuration Supabase</span></h3>
-                    <button onclick="closeSupabaseModal()" class="text-indigo-200 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
-                </div>
-                <form onsubmit="saveSupabaseConfig(event)" class="p-6 space-y-4">
-                    <div>
-                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Supabase Project URL</label>
-                        <input type="url" id="supabaseUrlInput" placeholder="https://xyzproject.supabase.co" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Supabase Anon Key</label>
-                        <input type="password" id="supabaseKeyInput" placeholder="eyJhbGciOi..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    </div>
-                    <div class="bg-slate-50 p-3 rounded-xl border text-xs text-slate-500 space-y-1">
-                        <span class="font-bold block text-slate-700">Tables requises dans Supabase :</span>
-                        <p><code>users</code>, <code>menus</code>, <code>reservations</code>, <code>settings</code></p>
-                    </div>
-                    <div class="flex justify-end space-x-2 pt-2 border-t">
-                        <button type="button" onclick="closeSupabaseModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition">Annuler</button>
-                        <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium transition shadow-sm">Connecter & Synchroniser</button>
-                    </div>
-                </form>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <h2 class="text-lg font-bold text-slate-900 mb-3"><i class="fa-solid fa-clock-rotate-left text-indigo-600 mr-2"></i> Mes Réservations Récentes</h2>
+                <div id="my-reservations-list" class="space-y-2 max-h-64 overflow-y-auto pr-1"></div>
             </div>
         </div>
-
-        <!-- USER EDIT / ADD MODAL -->
-        <div id="userModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-            <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-                <div class="bg-indigo-600 p-4 text-white flex items-center justify-between">
-                    <h3 id="userModalTitle" class="font-bold">Ajouter un Utilisateur</h3>
-                    <button onclick="closeUserModal()" class="text-indigo-200 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
-                </div>
-                <form id="userForm" onsubmit="handleSaveUser(event)" class="p-6 space-y-4">
-                    <input type="hidden" id="modalUserDbId">
-                    <div>
-                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Code Badge / ID Unique</label>
-                        <input type="text" id="modalUserCode" required placeholder="Ex: USER-1005" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Nom complet</label>
-                        <input type="text" id="modalUserName" required placeholder="Ex: Jean Dupont" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Email</label>
-                        <input type="email" id="modalUserEmail" placeholder="jean.dupont@example.com" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Rôle / Groupe</label>
-                        <select id="modalUserRole" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                            <option value="Étudiant / Salarié">Étudiant / Salarié</option>
-                            <option value="Personnel VIP">Personnel VIP</option>
-                            <option value="Invité">Invité</option>
-                        </select>
-                    </div>
-                    <div class="flex justify-end space-x-2 pt-4 border-t">
-                        <button type="button" onclick="closeUserModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition">Annuler</button>
-                        <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium transition shadow-sm">Enregistrer</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- REFECTOIRE QR CODE MODAL -->
-        <div id="refectoireModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-            <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden text-center p-6 space-y-6">
-                <div class="flex justify-between items-center border-b pb-3">
-                    <h3 class="font-bold text-slate-800">QR Code du Réfectoire</h3>
-                    <button onclick="closeRefectoireQrModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
-                </div>
-                
-                <div class="bg-indigo-50 p-6 rounded-2xl flex justify-center items-center">
-                    <div id="refectoireQrSvgContainer" class="bg-white p-4 rounded-xl shadow-inner border border-indigo-100">
-                        <!-- Refectoire QR SVG -->
-                    </div>
-                </div>
-
-                <div class="space-y-1">
-                    <h4 class="font-bold text-slate-900">Borne de Validation Centrale</h4>
-                    <p class="text-xs text-slate-500">Scannez ce code depuis votre mobile pour valider instantanément votre repas réservé.</p>
-                </div>
-
-                <button onclick="downloadRefectoireQR()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-xl transition shadow-sm text-sm flex items-center justify-center space-x-2">
-                    <i class="fa-solid fa-download"></i>
-                    <span>Télécharger le QR Code</span>
-                </button>
-            </div>
-        </div>
-
-        <!-- NOTIFICATION TOAST -->
-        <div id="toastNotification" class="fixed bottom-6 right-6 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl transform translate-y-24 opacity-0 transition-all duration-300 z-50 flex items-center space-x-3 text-sm">
-            <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
-            <span id="toastMessage">Action réussie !</span>
-        </div>
-
     </div>
 
+    <!-- Interface Administrateur -->
+    <div id="admin-app" class="hidden flex-grow max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6">
+        <div class="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
+            <button onclick="switchAdminTab('dashboard')" class="admin-tab-btn active bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm">
+                <i class="fa-solid fa-chart-pie mr-2"></i> Tableau de bord
+            </button>
+            <button onclick="switchAdminTab('users')" class="admin-tab-btn bg-white text-slate-700 hover:bg-slate-100 px-4 py-2 rounded-lg text-sm font-medium transition border border-slate-200">
+                <i class="fa-solid fa-users mr-2"></i> Utilisateurs & Badges
+            </button>
+            <button onclick="switchAdminTab('menus')" class="admin-tab-btn bg-white text-slate-700 hover:bg-slate-100 px-4 py-2 rounded-lg text-sm font-medium transition border border-slate-200">
+                <i class="fa-solid fa-utensils mr-2"></i> Gestion des Menus
+            </button>
+            <button onclick="switchAdminTab('controls')" class="admin-tab-btn bg-white text-slate-700 hover:bg-slate-100 px-4 py-2 rounded-lg text-sm font-medium transition border border-slate-200">
+                <i class="fa-solid fa-sliders mr-2"></i> Horaires & Affichage
+            </button>
+            <button onclick="switchAdminTab('scanner')" class="admin-tab-btn bg-white text-slate-700 hover:bg-slate-100 px-4 py-2 rounded-lg text-sm font-medium transition border border-slate-200">
+                <i class="fa-solid fa-camera mr-2"></i> Scanner Réfectoire
+            </button>
+        </div>
+
+        <div id="tab-dashboard" class="admin-tab-content space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+                    <p class="text-xs font-semibold text-slate-400 uppercase">Total Utilisateurs</p>
+                    <h3 class="text-2xl font-bold text-slate-900 mt-1" id="stat-total-users">0</h3>
+                </div>
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+                    <p class="text-xs font-semibold text-slate-400 uppercase">Réservations Aujourd'hui</p>
+                    <h3 class="text-2xl font-bold text-indigo-600 mt-1" id="stat-today-reservations">0</h3>
+                </div>
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+                    <p class="text-xs font-semibold text-slate-400 uppercase">Repas Consommés</p>
+                    <h3 class="text-2xl font-bold text-emerald-600 mt-1" id="stat-consumed-meals">0</h3>
+                </div>
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+                    <p class="text-xs font-semibold text-slate-400 uppercase">QR Réfectoire ESSTS</p>
+                    <button onclick="downloadRefectoryQR()" class="mt-2 w-full bg-slate-900 hover:bg-slate-800 text-white text-xs py-1.5 rounded transition">
+                        <i class="fa-solid fa-download mr-1"></i> Télécharger QR Réfectoire
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <h3 class="text-lg font-bold text-slate-900 mb-4">Dernières Activités de Retrait</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-200 text-slate-400 font-medium">
+                                <th class="py-3 px-4">Utilisateur</th>
+                                <th class="py-3 px-4">Repas</th>
+                                <th class="py-3 px-4">Date</th>
+                                <th class="py-3 px-4">Statut</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-recent-activity"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-users" class="admin-tab-content hidden space-y-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div class="flex items-center gap-3 w-full md:w-auto">
+                    <input type="text" id="user-search" placeholder="Rechercher un utilisateur..." oninput="filterUsers()" class="border border-slate-300 rounded-lg px-3 py-2 text-sm w-full md:w-64 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+                <div class="flex flex-wrap gap-2 w-full md:w-auto justify-end">
+                    <button onclick="openAddUserModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2">
+                        <i class="fa-solid fa-user-plus"></i> Nouvel utilisateur
+                    </button>
+                    <label class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer flex items-center gap-2">
+                        <i class="fa-solid fa-file-excel"></i> Importer Excel/CSV
+                        <input type="file" id="import-file" accept=".xlsx, .xls, .csv" onchange="importUsers(event)" class="hidden">
+                    </label>
+                    <button onclick="exportUsersExcel()" class="bg-slate-800 hover:bg-slate-900 text-white px-3 py-2 rounded-lg text-sm transition" title="Exporter Excel">
+                        <i class="fa-solid fa-file-excel"></i>
+                    </button>
+                    <button onclick="exportUsersPDF()" class="bg-rose-600 hover:bg-rose-700 text-white px-3 py-2 rounded-lg text-sm transition" title="Exporter PDF / Badges">
+                        <i class="fa-solid fa-file-pdf"></i> Liste PDF
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 font-medium">
+                                <th class="py-3 px-4">Code</th>
+                                <th class="py-3 px-4">Nom complet</th>
+                                <th class="py-3 px-4">Rôle</th>
+                                <th class="py-3 px-4">QR Code</th>
+                                <th class="py-3 px-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-users-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-menus" class="admin-tab-content hidden space-y-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-slate-900">Gestion de la Semaine</h3>
+                <button onclick="openAddMenuModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2">
+                    <i class="fa-solid fa-plus"></i> Ajouter un menu
+                </button>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <div id="admin-menus-list" class="space-y-4"></div>
+            </div>
+        </div>
+
+        <div id="tab-controls" class="admin-tab-content hidden space-y-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-6">
+                <h3 class="text-lg font-bold text-slate-900"><i class="fa-solid fa-sliders text-indigo-600 mr-2"></i> Contrôle des Services & Horaires</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="service-controls-container"></div>
+            </div>
+        </div>
+
+        <div id="tab-scanner" class="admin-tab-content hidden space-y-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 max-w-xl mx-auto text-center space-y-4">
+                <h3 class="text-xl font-bold text-slate-900">Point de Contrôle Réfectoire ESSTS</h3>
+                <p class="text-sm text-slate-500">Entrez ou scannez le jeton QR de l'utilisateur pour valider la délivrance du repas.</p>
+                <div class="flex gap-2">
+                    <input type="text" id="admin-scan-token" placeholder="Coller ou entrer le token QR..." class="flex-grow border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    <button onclick="validateMealToken(document.getElementById('admin-scan-token').value)" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition">
+                        Valider Repas
+                    </button>
+                </div>
+                <div id="scan-result-box" class="p-4 rounded-xl hidden text-sm font-medium"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="config-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <h3 class="text-lg font-bold text-slate-900"><i class="fa-solid fa-database text-indigo-600 mr-2"></i> Configuration Supabase</h3>
+            <p class="text-xs text-slate-500">Connectez l'application à votre base de données Supabase pour persister les données dans le cloud.</p>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Supabase URL</label>
+                    <input type="text" id="supabase-url-input" placeholder="https://xyz.supabase.co" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Supabase Anon Key</label>
+                    <input type="password" id="supabase-key-input" placeholder="eyJhbGciOi..." class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="closeConfigModal()" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition">Annuler</button>
+                <button onclick="saveSupabaseConfig()" class="px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition">Enregistrer & Tester</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="user-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <h3 class="text-lg font-bold text-slate-900" id="user-modal-title">Nouvel Utilisateur</h3>
+            <div class="space-y-3">
+                <input type="hidden" id="modal-user-id">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Code Utilisateur</label>
+                    <input type="text" id="modal-user-code" placeholder="ex: USER-1005" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm uppercase focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Nom complet</label>
+                    <input type="text" id="modal-user-name" placeholder="Nom Prénom" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Rôle</label>
+                    <select id="modal-user-role" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        <option value="user">Utilisateur / Etudiant / Employé</option>
+                        <option value="admin">Administrateur</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="closeUserModal()" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition">Annuler</button>
+                <button onclick="saveUser()" class="px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="menu-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <h3 class="text-lg font-bold text-slate-900">Ajouter / Modifier un Menu</h3>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Type de Repas</label>
+                    <select id="modal-menu-type" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        <option value="breakfast">Petit-déjeuner</option>
+                        <option value="lunch">Déjeuner</option>
+                        <option value="dinner">Dîner / Repas</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Titre du plat / Menu</label>
+                    <input type="text" id="modal-menu-title" placeholder="Ex: Poulet rôti et légumes" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Description / Ingrédients</label>
+                    <textarea id="modal-menu-desc" rows="3" placeholder="Description détaillée..." class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"></textarea>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Date</label>
+                    <input type="date" id="modal-menu-date" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="closeMenuModal()" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition">Annuler</button>
+                <button onclick="saveMenu()" class="px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="canteen-scanner-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 text-center space-y-4">
+            <h3 class="text-lg font-bold text-slate-900"><i class="fa-solid fa-qrcode text-indigo-600 mr-2"></i> Retrait de Repas ESSTS</h3>
+            <p class="text-xs text-slate-500">Scannez le QR Code fixe du réfectoire ou validez votre présence pour récupérer votre repas réservé du jour.</p>
+            <div id="refectory-qr-display" class="my-4 flex justify-center"></div>
+            <button onclick="simulateRefectoryScan()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg text-sm font-medium transition shadow-sm">
+                Valider le retrait de mon repas
+            </button>
+            <button onclick="closeCanteenScannerModal()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-lg text-sm font-medium transition">
+                Fermer
+            </button>
+        </div>
+    </div>
+
+    <!-- Script Logique & Hamburger -->
     <script>
-        // SVG QR Generator utility
-        function generateSvgQr(text, size = 150) {
-            let hash = 0;
-            for (let i = 0; i < text.length; i++) {
-                hash = ((hash << 5) - hash) + text.charCodeAt(i);
-                hash |= 0;
+        // Logique Menu Hamburger & Accessibilité
+        const menuBtn = document.getElementById('menu-btn');
+        const drawer = document.getElementById('navigation-drawer');
+        const scrim = document.getElementById('drawer-scrim');
+        const closeBtn = document.getElementById('drawer-close-btn');
+        const hamburgerBars = menuBtn.querySelectorAll('.hamburger-bar');
+
+        let isDrawerOpen = false;
+
+        function toggleDrawer(open) {
+            isDrawerOpen = open !== undefined ? open : !isDrawerOpen;
+            menuBtn.setAttribute('aria-expanded', isDrawerOpen);
+
+            if (isDrawerOpen) {
+                drawer.classList.remove('-translate-x-full');
+                scrim.classList.remove('opacity-0', 'pointer-events-none');
+                scrim.classList.add('opacity-100', 'pointer-events-auto');
+                document.body.style.overflow = 'hidden';
+
+                hamburgerBars[0].classList.add('rotate-45', 'translate-y-0');
+                hamburgerBars[0].classList.remove('-translate-y-1.5');
+                hamburgerBars[1].classList.add('opacity-0', 'scale-x-0');
+                hamburgerBars[2].classList.add('-rotate-45', 'translate-y-0');
+                hamburgerBars[2].classList.remove('translate-y-1.5');
+
+                setTimeout(() => closeBtn.focus(), 100);
+            } else {
+                drawer.classList.add('-translate-x-full');
+                scrim.classList.remove('opacity-100', 'pointer-events-auto');
+                scrim.classList.add('opacity-0', 'pointer-events-none');
+                document.body.style.overflow = '';
+
+                hamburgerBars[0].classList.remove('rotate-45', 'translate-y-0');
+                hamburgerBars[0].classList.add('-translate-y-1.5');
+                hamburgerBars[1].classList.remove('opacity-0', 'scale-x-0');
+                hamburgerBars[2].classList.remove('-rotate-45', 'translate-y-0');
+                hamburgerBars[2].classList.add('translate-y-1.5');
+
+                menuBtn.focus();
             }
-            
-            let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 33 33" width="${size}" height="${size}" shape-rendering="crispEdges">`;
-            svg += `<rect width="33" height="33" fill="#ffffff"/>`;
-            
-            const drawFinder = (x, y) => {
-                let s = `<rect x="${x}" y="${y}" width="7" height="7" fill="#1e1b4b"/>`;
-                s += `<rect x="${x+1}" y="${y+1}" width="5" height="5" fill="#ffffff"/>`;
-                s += `<rect x="${x+2}" y="${y+2}" width="3" height="3" fill="#1e1b4b"/>`;
-                return s;
-            };
-            svg += drawFinder(0, 0);
-            svg += drawFinder(26, 0);
-            svg += drawFinder(0, 26);
-            
-            let seed = Math.abs(hash);
-            for (let r = 0; r < 33; r++) {
-                for (let c = 0; c < 33; c++) {
-                    if ((r < 8 && c < 8) || (r < 8 && c > 24) || (r > 24 && c < 8)) continue;
-                    seed = (seed * 9301 + 49297) % 233280;
-                    let rnd = seed / 233280;
-                    if (rnd > 0.55) {
-                        svg += `<rect x="${c}" y="${r}" width="1" height="1" fill="#0f172a"/>`;
-                    }
-                }
-            }
-            svg += `</svg>`;
-            return svg;
         }
 
-        // Default local fallback dataset matching Supabase schema
-        const defaultUsers = [
-            { id: 1, code_badge: "USER-1001", name: "Alice Martin", email: "alice@example.com", role: "Étudiant / Salarié" },
-            { id: 2, code_badge: "USER-1002", name: "Thomas Bernard", email: "thomas@example.com", role: "Personnel VIP" },
-            { id: 3, code_badge: "USER-1003", name: "Sarah Leroy", email: "sarah@example.com", role: "Étudiant / Salarié" },
-            { id: 4, code_badge: "USER-1004", name: "Karim Benali", email: "karim@example.com", role: "Invité" }
-        ];
+        menuBtn.addEventListener('click', () => toggleDrawer());
+        closeBtn.addEventListener('click', () => toggleDrawer(false));
+        scrim.addEventListener('click', () => toggleDrawer(false));
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && isDrawerOpen) toggleDrawer(false);
+        });
 
-        const defaultMenus = [
-            { day: "Lundi", breakfast: "Café au lait, Croissants frais, Jus", lunch: "Poulet rôti, Purée, Fruit", dinner: "Soupe de légumes, Yaourt" },
-            { day: "Mardi", breakfast: "Thé vert, Pains au chocolat", lunch: "Filet de merlu, Riz basmati", dinner: "Omelette aux champignons" },
-            { day: "Mercredi", breakfast: "Chocolat chaud, Tartines beurre", lunch: "Steak haché, Frites maison", dinner: "Gratin de chou-fleur" },
-            { day: "Jeudi", breakfast: "Café, Biscuits sablés", lunch: "Blanquette de veau, Riz pilaf", dinner: "Velouté de poireaux" },
-            { day: "Vendredi", breakfast: "Thé à la menthe, Beignets", lunch: "Couscous royal aux légumes", dinner: "Salade César au poulet" },
-            { day: "Samedi", breakfast: "Café, Pancakes au sirop", lunch: "Pizzas artisanales variées", dinner: "Potage de légumes" },
-            { day: "Dimanche", breakfast: "Chocolat chaud, Brioche dorée", lunch: "Rôti de bœuf, Gratin dauphinois", dinner: "Bouillon de volaille" }
-        ];
-
-        const defaultSettings = {
-            show_petit_dejeuner: true, start_petit_dejeuner: "07:00", end_petit_dejeuner: "09:30",
-            show_dejeuner: true, start_dejeuner: "11:30", end_dejeuner: "14:00",
-            show_diner: true, start_diner: "18:30", end_diner: "21:00"
-        };
-
-        // App state & Supabase integration
+        // État global application de cantine
         let supabaseClient = null;
-        let appState = {
-            currentUser: null,
-            isAdmin: false,
-            users: JSON.parse(localStorage.getItem('canteen_users')) || defaultUsers,
-            menus: JSON.parse(localStorage.getItem('canteen_menus')) || defaultMenus,
-            reservations: JSON.parse(localStorage.getItem('canteen_reservations')) || [],
-            settings: JSON.parse(localStorage.getItem('canteen_settings')) || defaultSettings,
-            useSupabase: false,
+        let currentUser = null;
+        let isSupabaseConfigured = false;
 
-            async init() {
-                const sbUrl = localStorage.getItem('supabase_url');
-                const sbKey = localStorage.getItem('supabase_key');
-                if (sbUrl && sbKey) {
-                    try {
-                        supabaseClient = window.supabase.createClient(sbUrl, sbKey);
-                        this.useSupabase = true;
-                        document.getElementById('dbStatusIndicator').className = "w-2 h-2 rounded-full bg-emerald-500 inline-block";
-                        document.getElementById('dbStatusText').innerText = "Connecté à Supabase Cloud";
-                        await this.fetchFromCloud();
-                    } catch (err) {
-                        console.error("Supabase connection failed, using localStorage fallback:", err);
-                        this.useSupabase = false;
-                        document.getElementById('dbStatusIndicator').className = "w-2 h-2 rounded-full bg-rose-500 inline-block";
-                        document.getElementById('dbStatusText').innerText = "Erreur Cloud (Mode Local actif)";
-                    }
-                } else {
-                    document.getElementById('dbStatusIndicator').className = "w-2 h-2 rounded-full bg-amber-400 inline-block";
-                    document.getElementById('dbStatusText').innerText = "Mode Local (Cliquez sur Configurer Supabase)";
-                }
-            },
-
-            async fetchFromCloud() {
-                if (!this.useSupabase || !supabaseClient) return;
-                try {
-                    // Fetch Users
-                    const { data: uData } = await supabaseClient.from('users').select('*');
-                    if (uData && uData.length > 0) this.users = uData;
-
-                    // Fetch Menus
-                    const { data: mData } = await supabaseClient.from('menus').select('*');
-                    if (mData && mData.length > 0) this.menus = mData;
-
-                    // Fetch Reservations
-                    const { data: rData } = await supabaseClient.from('reservations').select('*');
-                    if (rData) this.reservations = rData;
-
-                    // Fetch Settings
-                    const { data: sData } = await supabaseClient.from('settings').select('*');
-                    if (sData && sData.length > 0) {
-                        sData.forEach(row => {
-                            if (this.settings.hasOwnProperty(row.key)) {
-                                this.settings[row.key] = row.value === 'true' ? true : (row.value === 'false' ? false : row.value);
-                            }
-                        });
-                    }
-                } catch (e) {
-                    console.error("Cloud fetch error:", e);
-                }
-            },
-
-            async save() {
-                localStorage.setItem('canteen_users', JSON.stringify(this.users));
-                localStorage.setItem('canteen_menus', JSON.stringify(this.menus));
-                localStorage.setItem('canteen_reservations', JSON.stringify(this.reservations));
-                localStorage.setItem('canteen_settings', JSON.stringify(this.settings));
-
-                if (this.useSupabase && supabaseClient) {
-                    // Sync settings to cloud
-                    for (const [key, val] of Object.entries(this.settings)) {
-                        await supabaseClient.from('settings').upsert({ key, value: String(val) }, { onConflict: 'key' });
-                    }
-                }
-            },
-
-            logout() {
-                this.currentUser = null;
-                this.isAdmin = false;
-                document.getElementById('authView').classList.remove('hidden');
-                document.getElementById('sidebarNav').classList.add('hidden');
-                document.querySelectorAll('.app-view').forEach(el => el.classList.add('hidden'));
-                showToast("Déconnexion réussie", "info");
+        let localData = {
+            users: [
+                { id: '1', user_code: 'USER-1001', full_name: 'Ahmed Benali', role: 'user' },
+                { id: '2', user_code: 'USER-1002', full_name: 'Fatima Zahra', role: 'user' },
+                { id: '3', user_code: 'ADMIN-01', full_name: 'Administrateur ESSTS', role: 'admin' }
+            ],
+            menus: [
+                { id: 'm1', date: new Date().toISOString().split('T')[0], meal_type: 'breakfast', title: 'Petit-déjeuner Continental', description: 'Café, croissant, jus d’orange, pain, beurre et confiture.' },
+                { id: 'm2', date: new Date().toISOString().split('T')[0], meal_type: 'lunch', title: 'Déjeuner Complet', description: 'Salade verte, Couscous royal aux légumes et viande, fruit de saison.' },
+                { id: 'm3', date: new Date().toISOString().split('T')[0], meal_type: 'dinner', title: 'Dîner Léger', description: 'Soupe de légumes, omelette aux fines herbes et yaourt.' }
+            ],
+            reservations: [],
+            services: {
+                breakfast: { active: true, start: '07:00', end: '09:30' },
+                lunch: { active: true, start: '11:30', end: '14:30' },
+                dinner: { active: true, start: '18:30', end: '21:00' }
             }
         };
 
-        // UI Handlers & Navigation
-        function openSupabaseModal() {
-            document.getElementById('supabaseUrlInput').value = localStorage.getItem('supabase_url') || '';
-            document.getElementById('supabaseKeyInput').value = localStorage.getItem('supabase_key') || '';
-            document.getElementById('supabaseModal').classList.remove('hidden');
-        }
-
-        function closeSupabaseModal() {
-            document.getElementById('supabaseModal').classList.add('hidden');
-        }
-
-        async function saveSupabaseConfig(event) {
-            event.preventDefault();
-            const url = document.getElementById('supabaseUrlInput').value.trim();
-            const key = document.getElementById('supabaseKeyInput').value.trim();
-            localStorage.setItem('supabase_url', url);
-            localStorage.setItem('supabase_key', key);
-            closeSupabaseModal();
-            await appState.init();
-            showToast("Paramètres Supabase mis à jour !");
-        }
-
-        function switchAuthTab(tab) {
-            const userBtn = document.getElementById('authTabUser');
-            const adminBtn = document.getElementById('authTabAdmin');
-            const userForm = document.getElementById('userLoginForm');
-            const adminForm = document.getElementById('adminLoginForm');
-
-            if (tab === 'user') {
-                userBtn.className = "flex-1 py-2 text-sm font-medium rounded-lg transition bg-white shadow-sm text-indigo-600";
-                adminBtn.className = "flex-1 py-2 text-sm font-medium rounded-lg transition text-slate-600";
-                userForm.classList.remove('hidden');
-                adminForm.classList.add('hidden');
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedUrl = localStorage.getItem('sb_url');
+            const savedKey = localStorage.getItem('sb_key');
+            if (savedUrl && savedKey) {
+                document.getElementById('supabase-url-input').value = savedUrl;
+                document.getElementById('supabase-key-input').value = savedKey;
+                initSupabase(savedUrl, savedKey);
             } else {
-                adminBtn.className = "flex-1 py-2 text-sm font-medium rounded-lg transition bg-white shadow-sm text-indigo-600";
-                userBtn.className = "flex-1 py-2 text-sm font-medium rounded-lg transition text-slate-600";
-                adminForm.classList.remove('hidden');
-                userForm.classList.add('hidden');
+                updateDbIndicator(false);
+            }
+            
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('today-date-display').innerText = new Date().toLocaleDateString('fr-FR', options);
+        });
+
+        function initSupabase(url, key) {
+            try {
+                supabaseClient = window.supabase.createClient(url, key);
+                isSupabaseConfigured = true;
+                updateDbIndicator(true);
+                fetchSupabaseData();
+            } catch (e) {
+                isSupabaseConfigured = false;
+                updateDbIndicator(false);
             }
         }
 
-        function handleUserLogin(event) {
-            event.preventDefault();
-            const codeInput = document.getElementById('loginUserId').value.trim().toUpperCase();
-            const found = appState.users.find(u => u.code_badge.toUpperCase() === codeInput || u.id == codeInput);
+        function updateDbIndicator(connected) {
+            const ind = document.getElementById('db-mode-indicator');
+            if (connected) {
+                ind.innerText = "Mode stockage : Supabase Connecté (Cloud)";
+                ind.className = "text-xs text-emerald-600 font-medium";
+            } else {
+                ind.innerText = "Mode stockage : Local / Mémoire (Cliquez sur Supabase pour connecter)";
+                ind.className = "text-xs text-amber-600 font-medium";
+            }
+        }
 
+        function openConfigModal() { document.getElementById('config-modal').classList.remove('hidden'); }
+        function closeConfigModal() { document.getElementById('config-modal').classList.add('hidden'); }
+        function saveSupabaseConfig() {
+            const url = document.getElementById('supabase-url-input').value.trim();
+            const key = document.getElementById('supabase-key-input').value.trim();
+            if (url && key) {
+                localStorage.setItem('sb_url', url);
+                localStorage.setItem('sb_key', key);
+                initSupabase(url, key);
+                closeConfigModal();
+                alert("Configuration Supabase enregistrée !");
+            } else {
+                alert("Veuillez remplir tous les champs.");
+            }
+        }
+
+        async function fetchSupabaseData() {
+            if (!isSupabaseConfigured) return;
+            try {
+                let { data: users } = await supabaseClient.from('profiles').select('*');
+                if (users && users.length > 0) localData.users = users;
+                let { data: menus } = await supabaseClient.from('menus').select('*');
+                if (menus && menus.length > 0) localData.menus = menus;
+                let { data: resv } = await supabaseClient.from('reservations').select('*');
+                if (resv) localData.reservations = resv;
+            } catch (e) {}
+        }
+
+        async function loginAsUser() {
+            const code = document.getElementById('login-user-code').value.trim().toUpperCase();
+            if (!code) { alert("Veuillez entrer un code utilisateur."); return; }
+            if (isSupabaseConfigured) await fetchSupabaseData();
+
+            const found = localData.users.find(u => u.user_code === code);
             if (found) {
-                appState.currentUser = found;
-                appState.isAdmin = false;
-                initAppSession();
-                showToast(`Bienvenue, ${found.name} !`);
+                currentUser = found;
+                setupSession();
             } else {
-                showToast("Code Badge introuvable (ex: USER-1001)", "error");
+                alert("Code utilisateur inconnu. Essayez USER-1001 ou ADMIN-01");
             }
         }
 
-        function handleAdminLogin(event) {
-            event.preventDefault();
-            const user = document.getElementById('adminUser').value;
-            const pass = document.getElementById('adminPass').value;
+        function loginAsAdminPrompt() {
+            const pass = prompt("Mot de passe Administrateur (par défaut: admin123 ou code ADMIN-01) :");
+            if (pass === "admin123" || pass === "admin") {
+                currentUser = localData.users.find(u => u.role === 'admin') || { id: 'admin-default', user_code: 'ADMIN-01', full_name: 'Administrateur ESSTS', role: 'admin' };
+                setupSession();
+            } else if (pass) {
+                const found = localData.users.find(u => u.user_code === pass.toUpperCase() && u.role === 'admin');
+                if (found) {
+                    currentUser = found;
+                    setupSession();
+                } else {
+                    alert("Mot de passe ou code administrateur incorrect.");
+                }
+            }
+        }
 
-            if (user === 'admin' && pass === 'admin123') {
-                appState.currentUser = { id: 'ADMIN', name: 'Administrateur', role: 'Admin', code_badge: 'ADMIN' };
-                appState.isAdmin = true;
-                initAppSession();
-                showToast("Session Administrateur ouverte");
+        function setupSession() {
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('logout-btn').classList.remove('hidden');
+            document.getElementById('current-user-badge').innerText = `${currentUser.full_name} (${currentUser.role.toUpperCase()})`;
+
+            if (currentUser.role === 'admin') {
+                document.getElementById('admin-app').classList.remove('hidden');
+                initAdminDashboard();
             } else {
-                showToast("Identifiants admin incorrects", "error");
+                document.getElementById('user-app').classList.remove('hidden');
+                initUserDashboard();
             }
         }
 
-        function initAppSession() {
-            document.getElementById('authView').classList.add('hidden');
-            document.getElementById('sidebarNav').classList.remove('hidden');
-            
-            document.getElementById('headerUserName').innerText = appState.currentUser.name;
-            document.getElementById('headerUserBadge').innerText = appState.isAdmin ? 'Admin' : 'Utilisateur';
-
-            const adminNav = document.getElementById('adminNavSection');
-            if (appState.isAdmin) {
-                adminNav.classList.remove('hidden');
-                switchView('admin-dashboard');
-            } else {
-                adminNav.classList.add('hidden');
-                switchView('user-menu');
-            }
+        function logout() {
+            currentUser = null;
+            document.getElementById('auth-screen').classList.remove('hidden');
+            document.getElementById('user-app').classList.add('hidden');
+            document.getElementById('admin-app').classList.add('hidden');
+            document.getElementById('logout-btn').classList.add('hidden');
+            document.getElementById('current-user-badge').innerText = "Non connecté";
+            document.getElementById('login-user-code').value = '';
         }
 
-        function switchView(viewId) {
-            document.querySelectorAll('.app-view').forEach(el => el.classList.add('hidden'));
-            document.querySelectorAll('#sidebarNav button[id^="nav-"]').forEach(btn => {
-                btn.className = "w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm font-medium transition text-slate-600 hover:bg-slate-100";
-            });
-
-            const targetView = document.getElementById(`view-${viewId}`);
-            const targetNav = document.getElementById(`nav-${viewId}`);
-
-            if (targetView) targetView.classList.remove('hidden');
-            if (targetNav) targetNav.className = "w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm font-medium transition bg-indigo-50 text-indigo-600 font-semibold";
-
-            if (viewId === 'user-menu') renderUserMenu();
-            if (viewId === 'user-reserve') renderUserReservations();
-            if (viewId === 'user-pickup') renderUserPickup();
-            if (viewId === 'admin-dashboard') renderAdminDashboard();
-            if (viewId === 'admin-users') renderAdminUsersTable();
-            if (viewId === 'admin-menus') renderAdminMenus();
-            if (viewId === 'admin-settings') loadSettingsValues();
-        }
-
-        function renderUserMenu() {
-            const day = document.getElementById('menuDaySelector').value;
-            const container = document.getElementById('userMenuContainer');
-            const menuRecord = appState.menus.find(m => m.day === day) || { breakfast: "Non défini", lunch: "Non défini", dinner: "Non défini" };
-            const settings = appState.settings;
-
-            let html = '';
-            const meals = [
-                { key: 'petit-dejeuner', label: 'Petit-déjeuner', icon: 'fa-coffee', val: menuRecord.breakfast, time: `${settings.start_petit_dejeuner} - ${settings.end_petit_dejeuner}` },
-                { key: 'dejeuner', label: 'Déjeuner', icon: 'fa-utensils', val: menuRecord.lunch, time: `${settings.start_dejeuner} - ${settings.end_dejeuner}` },
-                { key: 'diner', label: 'Dîner', icon: 'fa-moon', val: menuRecord.dinner, time: `${settings.start_diner} - ${settings.end_diner}` }
-            ];
-
-            meals.forEach(m => {
-                const isShown = settings[`show_${m.key.replace('-', '_')}`];
-                if (!isShown && !appState.isAdmin) return;
-
-                html += `
-                    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4 relative overflow-hidden flex flex-col justify-between">
-                        ${!isShown ? '<div class="absolute top-2 right-2 bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full">Masqué</div>' : ''}
-                        <div>
-                            <div class="flex items-center space-x-2.5 text-indigo-600 mb-3">
-                                <div class="bg-indigo-50 p-2.5 rounded-xl"><i class="fa-solid ${m.icon}"></i></div>
-                                <div>
-                                    <h3 class="font-bold text-slate-800">${m.label}</h3>
-                                    <span class="text-xs text-slate-400 font-medium"><i class="fa-regular fa-clock mr-1"></i>${m.time}</span>
-                                </div>
-                            </div>
-                            <div class="space-y-1 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                <h4 class="font-bold text-slate-900 text-sm">${m.val}</h4>
-                            </div>
-                        </div>
-                        ${!appState.isAdmin ? `
-                            <button onclick="quickReserve('${m.key}')" class="w-full bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-600 text-xs font-semibold py-2.5 rounded-xl transition border border-indigo-100 flex items-center justify-center space-x-1.5">
-                                <i class="fa-solid fa-plus"></i>
-                                <span>Commander ce repas</span>
-                            </button>
-                        ` : ''}
-                    </div>
-                `;
-            });
-
-            container.innerHTML = html || '<p class="text-slate-400 text-center col-span-3 py-8">Aucun repas affiché pour ce jour.</p>';
-        }
-
-        async function quickReserve(mealType) {
-            const today = new Date().toISOString().split('T')[0];
-            const qrToken = 'RES-' + Math.floor(100000 + Math.random() * 900000);
-            const newRes = {
-                id: 'R-' + Date.now(),
-                user_id: appState.currentUser.id || appState.currentUser.code_badge,
-                meal_type: mealType,
-                date: today,
-                qr_token: qrToken,
-                status: 'Réservé',
-                scanned_at: null
-            };
-
-            appState.reservations.push(newRes);
-            await appState.save();
-
-            if (appState.useSupabase && supabaseClient) {
-                await supabaseClient.from('reservations').insert([newRes]);
-            }
-
-            showToast("Réservation cloud enregistrée avec succès !");
-            switchView('user-reserve');
-        }
-
-        function renderUserReservations() {
-            if (appState.isAdmin) return;
-            const listContainer = document.getElementById('userReservationsList');
-            const userId = appState.currentUser.id || appState.currentUser.code_badge;
-            const userRes = appState.reservations.filter(r => r.user_id == userId || r.user_id === appState.currentUser.code_badge);
-            
-            document.getElementById('reservationCountBadge').innerText = userRes.length;
-            document.getElementById('resDate').value = new Date().toISOString().split('T')[0];
-
-            if (userRes.length === 0) {
-                listContainer.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">Aucune réservation active.</p>';
-                return;
-            }
-
-            let html = '';
-            userRes.forEach(r => {
-                const qrSvg = generateSvgQr(`CANTINE-RES:${r.qr_token}`, 90);
-                html += `
-                    <div class="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200 gap-4">
-                        <div class="space-y-1">
-                            <div class="flex items-center space-x-2">
-                                <span class="bg-indigo-600 text-white font-mono text-[10px] px-2 py-0.5 rounded">${r.qr_token}</span>
-                                <span class="text-xs font-bold uppercase text-slate-700">${r.meal_type}</span>
-                            </div>
-                            <p class="text-xs text-slate-500"><i class="fa-regular fa-calendar mr-1"></i>Date : ${r.date}</p>
-                            <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${r.status === 'Servi' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">${r.status}</span>
-                        </div>
-                        <div class="bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
-                            ${qrSvg}
-                        </div>
-                    </div>
-                `;
-            });
-            listContainer.innerHTML = html;
-        }
-
-        async function handleCreateReservation(event) {
-            event.preventDefault();
-            const date = document.getElementById('resDate').value;
-            const mealType = document.getElementById('resMealType').value;
-            const qrToken = 'RES-' + Math.floor(100000 + Math.random() * 900000);
-
-            const newRes = {
-                id: 'R-' + Date.now(),
-                user_id: appState.currentUser.id || appState.currentUser.code_badge,
-                meal_type: mealType,
-                date: date,
-                qr_token: qrToken,
-                status: 'Réservé',
-                scanned_at: null
-            };
-
-            appState.reservations.push(newRes);
-            await appState.save();
-
-            if (appState.useSupabase && supabaseClient) {
-                await supabaseClient.from('reservations').insert([newRes]);
-            }
-
-            showToast("Réservation cloud créée avec succès !");
+        function initUserDashboard() {
+            renderUserMenus();
+            renderUserQRCode();
             renderUserReservations();
         }
 
-        function renderUserPickup() {
-            if (appState.isAdmin) return;
-            const user = appState.currentUser;
-            document.getElementById('pickupUserName').innerText = user.name;
-            document.getElementById('pickupUserCode').innerText = user.code_badge || user.id;
+        function renderUserMenus() {
+            const container = document.getElementById('menus-container');
+            container.innerHTML = '';
+            const today = new Date().toISOString().split('T')[0];
+            const types = [
+                { key: 'breakfast', label: 'Petit-déjeuner', icon: 'fa-mug-hot' },
+                { key: 'lunch', label: 'Déjeuner', icon: 'fa-bowl-food' },
+                { key: 'dinner', label: 'Dîner / Repas', icon: 'fa-utensils' }
+            ];
 
-            const qrDisplay = document.getElementById('userPersonalQrDisplay');
-            qrDisplay.innerHTML = generateSvgQr(`CANTINE-USER:${user.code_badge || user.id}:${user.name}`, 180);
+            types.forEach(t => {
+                const serviceInfo = localData.services[t.key];
+                const menu = localData.menus.find(m => m.meal_type === t.key && m.date === today) || { title: 'Menu non défini', description: 'Aucun détail pour ce service aujourd\'hui.' };
+                const existingRes = localData.reservations.find(r => r.user_id === currentUser.id && r.date === today && r.meal_type === t.key);
+
+                const card = document.createElement('div');
+                card.className = `p-5 rounded-xl border flex flex-col justify-between transition ${serviceInfo.active ? 'bg-white border-slate-200' : 'bg-slate-100 border-slate-200 opacity-70'}`;
+                card.innerHTML = `
+                    <div>
+                        <div class="flex justify-between items-center mb-3">
+                            <span class="font-bold text-slate-800 flex items-center gap-2"><i class="fa-solid ${t.icon} text-indigo-600"></i> ${t.label}</span>
+                            <span class="text-xs px-2.5 py-1 rounded-full font-medium ${serviceInfo.active ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}">
+                                ${serviceInfo.active ? `${serviceInfo.start} -${serviceInfo.end}` : 'Fermé'}
+                            </span>
+                        </div>
+                        <h4 class="font-semibold text-slate-900 text-base mb-1">${menu.title}</h4>
+                        <p class="text-xs text-slate-500 mb-4">${menu.description}</p>
+                    </div>
+                    <div>
+                        ${serviceInfo.active ? `
+                            ${existingRes ? `
+                                <div class="w-full bg-emerald-50 text-emerald-700 text-xs py-2 px-3 rounded-lg text-center font-medium flex items-center justify-center gap-1">
+                                    <i class="fa-solid fa-check-circle"></i> Réservé (${existingRes.status})
+                                </div>
+                            ` : `
+                                <button onclick="reserveMeal('${t.key}')" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-2 rounded-lg transition font-medium shadow-sm">
+                                    Réserver ce repas
+                                </button>
+                            `}
+                        ` : `
+                            <div class="w-full bg-slate-200 text-slate-500 text-xs py-2 rounded-lg text-center font-medium">Service non disponible</div>
+                        `}
+                    </div>
+                `;
+                container.appendChild(card);
+            });
         }
 
-        async function simulateScanPickup() {
-            const userId = appState.currentUser.id || appState.currentUser.code_badge;
-            const activeRes = appState.reservations.find(r => (r.user_id == userId || r.user_id === appState.currentUser.code_badge) && r.status === 'Réservé');
+        async function reserveMeal(mealType) {
+            const today = new Date().toISOString().split('T')[0];
+            const qrToken = `RES-${currentUser.user_code}-${mealType}-${Date.now().toString().slice(-4)}`;
+            const newRes = {
+                id: 'res-' + Date.now(),
+                user_id: currentUser.id,
+                user_code: currentUser.user_code,
+                user_name: currentUser.full_name,
+                date: today,
+                meal_type: mealType,
+                qr_token: qrToken,
+                status: 'reserved',
+                consumed_at: null
+            };
 
+            if (isSupabaseConfigured) {
+                try { await supabaseClient.from('reservations').insert([newRes]); } catch (e) {}
+            }
+
+            localData.reservations.push(newRes);
+            alert("Réservation effectuée avec succès !");
+            initUserDashboard();
+        }
+
+        function renderUserQRCode() {
+            const container = document.getElementById('user-qrcode-container');
+            container.innerHTML = '';
+            document.getElementById('qr-user-info').innerText = `${currentUser.full_name} (${currentUser.user_code})`;
+            new QRCode(container, { text: `USER-TOKEN:${currentUser.user_code}`, width: 140, height: 140, colorDark: "#0f172a", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.H });
+        }
+
+        function downloadMyQRCode() {
+            const qrCanvas = document.querySelector('#user-qrcode-container canvas');
+            if (!qrCanvas) return;
+            const link = document.createElement('a');
+            link.download = `Badge_ESSTS_QR_${currentUser.user_code}.png`;
+            link.href = qrCanvas.toDataURL("image/png");
+            link.click();
+        }
+
+        function renderUserReservations() {
+            const list = document.getElementById('my-reservations-list');
+            list.innerHTML = '';
+            const userResv = localData.reservations.filter(r => r.user_id === currentUser.id);
+            if (userResv.length === 0) {
+                list.innerHTML = `<p class="text-xs text-slate-400 italic text-center py-4">Aucune réservation enregistrée.</p>`;
+                return;
+            }
+            userResv.reverse().forEach(r => {
+                const item = document.createElement('div');
+                item.className = "p-3 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center text-xs";
+                item.innerHTML = `
+                    <div>
+                        <span class="font-bold text-slate-800 uppercase">${r.meal_type}</span> - <span class="text-slate-500">${r.date}</span>
+                        <div class="text-[10px] text-slate-400 font-mono mt-0.5">${r.qr_token}</div>
+                    </div>
+                    <span class="px-2 py-1 rounded font-medium ${r.status === 'consumed' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">
+                        ${r.status === 'consumed' ? 'Consommé' : 'Réservé'}
+                    </span>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function openCanteenScannerModal() {
+            document.getElementById('canteen-scanner-modal').classList.remove('hidden');
+            const display = document.getElementById('refectory-qr-display');
+            display.innerHTML = '';
+            new QRCode(display, { text: `REFECTORY-CHECKIN-STATION-ESSTS`, width: 150, height: 150, colorDark: "#0f172a", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.H });
+        }
+        function closeCanteenScannerModal() { document.getElementById('canteen-scanner-modal').classList.add('hidden'); }
+
+        async function simulateRefectoryScan() {
+            const today = new Date().toISOString().split('T')[0];
+            const activeRes = localData.reservations.find(r => r.user_id === currentUser.id && r.date === today && r.status === 'reserved');
             if (activeRes) {
-                activeRes.status = 'Servi';
-                activeRes.scanned_at = new Date().toISOString();
-                await appState.save();
-
-                if (appState.useSupabase && supabaseClient) {
-                    await supabaseClient.from('reservations').update({ status: 'Servi', scanned_at: activeRes.scanned_at }).eq('id', activeRes.id);
+                activeRes.status = 'consumed';
+                activeRes.consumed_at = new Date().toISOString();
+                if (isSupabaseConfigured) {
+                    try { await supabaseClient.from('reservations').update({ status: 'consumed', consumed_at: activeRes.consumed_at }).eq('id', activeRes.id); } catch(e){}
                 }
-
-                showToast("Repas récupéré et validé via Supabase !");
-                renderUserReservations();
+                alert("Repas récupéré avec succès ! Bon appétit.");
+                closeCanteenScannerModal();
+                initUserDashboard();
             } else {
-                showToast("Aucune réservation active en attente", "error");
+                alert("Aucune réservation active trouvée pour ce repas aujourd'hui.");
             }
         }
 
-        function renderAdminDashboard() {
-            document.getElementById('statTotalUsers').innerText = appState.users.length;
-            document.getElementById('statTotalRes').innerText = appState.reservations.length;
-            const servedCount = appState.reservations.filter(r => r.status === 'Servi').length;
-            document.getElementById('statTotalServed').innerText = servedCount;
-
-            const tbody = document.getElementById('adminPickupsTableBody');
-            const servedList = appState.reservations.filter(r => r.status === 'Servi');
-
-            if (servedList.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" class="text-center py-6 text-slate-400">Aucun log de scan récent.</td></tr>`;
-                return;
-            }
-
-            let html = '';
-            servedList.slice(-10).reverse().forEach(r => {
-                const u = appState.users.find(user => user.id == r.user_id || user.code_badge === r.user_id);
-                const userName = u ? u.name : r.user_id;
-                html += `
-                    <tr class="hover:bg-slate-50">
-                        <td class="py-3 px-4 font-medium text-slate-900">${userName} <span class="text-xs text-indigo-600 font-mono">(${r.qr_token})</span></td>
-                        <td class="py-3 px-4 capitalize">${r.meal_type}</td>
-                        <td class="py-3 px-4 text-slate-500">${r.scanned_at ? new Date(r.scanned_at).toLocaleString() : 'Récemment'}</td>
-                        <td class="py-3 px-4"><span class="bg-emerald-100 text-emerald-700 text-xs px-2.5 py-1 rounded-full font-bold">Servi</span></td>
-                    </tr>
-                `;
+        function switchAdminTab(tabName) {
+            document.querySelectorAll('.admin-tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.admin-tab-btn').forEach(el => {
+                el.classList.remove('bg-indigo-600', 'text-white', 'shadow-sm');
+                el.classList.add('bg-white', 'text-slate-700', 'border', 'border-slate-200');
             });
-            tbody.innerHTML = html;
+            document.getElementById('tab-' + tabName).classList.remove('hidden');
+            event.currentTarget.classList.remove('bg-white', 'text-slate-700', 'border', 'border-slate-200');
+            event.currentTarget.classList.add('bg-indigo-600', 'text-white', 'shadow-sm');
+
+            if (tabName === 'dashboard') initAdminDashboard();
+            if (tabName === 'users') renderAdminUsers();
+            if (tabName === 'menus') renderAdminMenus();
+            if (tabName === 'controls') renderServiceControls();
         }
 
-        async function refreshDataFromCloud() {
-            await appState.fetchFromCloud();
-            renderAdminDashboard();
-            showToast("Données synchronisées depuis Supabase !");
-        }
+        function initAdminDashboard() {
+            document.getElementById('stat-total-users').innerText = localData.users.length;
+            const today = new Date().toISOString().split('T')[0];
+            const todayRes = localData.reservations.filter(r => r.date === today);
+            document.getElementById('stat-today-reservations').innerText = todayRes.length;
+            document.getElementById('stat-consumed-meals').innerText = todayRes.filter(r => r.status === 'consumed').length;
 
-        function renderAdminUsersTable() {
-            const query = document.getElementById('userSearchInput').value.toLowerCase();
-            const tbody = document.getElementById('adminUsersTableBody');
-            const filtered = appState.users.filter(u => u.name.toLowerCase().includes(query) || (u.email && u.email.toLowerCase().includes(query)) || (u.code_badge && u.code_badge.toLowerCase().includes(query)));
-
-            if (filtered.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-6 text-slate-400">Aucun utilisateur trouvé.</td></tr>`;
+            const tbody = document.getElementById('admin-recent-activity');
+            tbody.innerHTML = '';
+            const recent = [...localData.reservations].reverse().slice(0, 5);
+            if (recent.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="py-4 text-center text-slate-400 italic">Aucune activité récente.</td></tr>`;
                 return;
             }
+            recent.forEach(r => {
+                const u = localData.users.find(us => us.id === r.user_id) || { full_name: r.user_code };
+                const tr = document.createElement('tr');
+                tr.className = "border-b border-slate-100";
+                tr.innerHTML = `
+                    <td class="py-3 px-4 font-medium text-slate-800">${u.full_name} (${r.user_code})</td>
+                    <td class="py-3 px-4 uppercase text-xs font-semibold">${r.meal_type}</td>
+                    <td class="py-3 px-4 text-slate-500">${r.date}</td>
+                    <td class="py-3 px-4"><span class="px-2 py-1 rounded text-xs font-medium ${r.status === 'consumed' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">${r.status}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
 
-            let html = '';
+        function downloadRefectoryQR() {
+            const tempDiv = document.createElement('div');
+            new QRCode(tempDiv, { text: "REFECTORY-CHECKIN-STATION-ESSTS", width: 300, height: 300, colorDark: "#0f172a", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.H });
+            setTimeout(() => {
+                const canvas = tempDiv.querySelector('canvas');
+                if (canvas) {
+                    const link = document.createElement('a');
+                    link.download = "QR_Code_Refectoire_ESSTS.png";
+                    link.href = canvas.toDataURL("image/png");
+                    link.click();
+                }
+            }, 300);
+        }
+
+        function renderAdminUsers(filter = '') {
+            const tbody = document.getElementById('admin-users-table-body');
+            tbody.innerHTML = '';
+            const filtered = localData.users.filter(u => u.full_name.toLowerCase().includes(filter.toLowerCase()) || u.user_code.toLowerCase().includes(filter.toLowerCase()));
+            
             filtered.forEach(u => {
-                const qrSvg = generateSvgQr(u.code_badge || String(u.id), 50);
-                html += `
-                    <tr class="hover:bg-slate-50 border-b">
-                        <td class="py-3 px-4 font-medium text-slate-900">${u.name}</td>
-                        <td class="py-3 px-4 text-slate-500">${u.email || '-'}</td>
-                        <td class="py-3 px-4 font-mono text-xs text-indigo-600">${u.code_badge || u.id}</td>
-                        <td class="py-3 px-4"><span class="bg-slate-100 text-slate-700 text-xs px-2.5 py-1 rounded-full">${u.role || 'Étudiant'}</span></td>
-                        <td class="py-3 px-4">${qrSvg}</td>
-                        <td class="py-3 px-4 text-right space-x-2">
-                            <button onclick="editUser('${u.id}')" class="text-slate-400 hover:text-indigo-600 p-1" title="Modifier"><i class="fa-solid fa-pen"></i></button>
-                            <button onclick="deleteUser('${u.id}')" class="text-slate-400 hover:text-rose-600 p-1" title="Supprimer"><i class="fa-solid fa-trash"></i></button>
-                        </td>
-                    </tr>
+                const tr = document.createElement('tr');
+                tr.className = "border-b border-slate-100 hover:bg-slate-50";
+                tr.innerHTML = `
+                    <td class="py-3 px-4 font-mono font-semibold text-slate-900">${u.user_code}</td>
+                    <td class="py-3 px-4 text-slate-800">${u.full_name}</td>
+                    <td class="py-3 px-4"><span class="px-2.5 py-1 rounded-full text-xs font-medium ${u.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-indigo-50 text-indigo-700'}">${u.role}</span></td>
+                    <td class="py-3 px-4"><div id="mini-qr-${u.user_code}" class="w-10 h-10"></div></td>
+                    <td class="py-3 px-4 text-right space-x-2">
+                        <button onclick="downloadSingleBadge('${u.user_code}', '${u.full_name}')" class="text-slate-600 hover:text-indigo-600 transition" title="Télécharger Badge PDF"><i class="fa-solid fa-id-card"></i></button>
+                        <button onclick="deleteUser('${u.id}')" class="text-rose-500 hover:text-rose-700 transition" title="Supprimer"><i class="fa-solid fa-trash"></i></button>
+                    </td>
                 `;
-            });
-            tbody.innerHTML = html;
-        }
-
-        function openUserModal(userId = null) {
-            document.getElementById('userModal').classList.remove('hidden');
-            if (userId) {
-                const user = appState.users.find(u => u.id == userId);
-                document.getElementById('userModalTitle').innerText = "Modifier l'Utilisateur";
-                document.getElementById('modalUserDbId').value = user.id;
-                document.getElementById('modalUserCode').value = user.code_badge || '';
-                document.getElementById('modalUserName').value = user.name;
-                document.getElementById('modalUserEmail').value = user.email || '';
-                document.getElementById('modalUserRole').value = user.role || 'Étudiant / Salarié';
-            } else {
-                document.getElementById('userModalTitle').innerText = "Ajouter un Utilisateur";
-                document.getElementById('modalUserDbId').value = "";
-                document.getElementById('modalUserCode').value = 'USER-' + Math.floor(1000 + Math.random() * 9000);
-                document.getElementById('modalUserName').value = "";
-                document.getElementById('modalUserEmail').value = "";
-            }
-        }
-
-        function closeUserModal() {
-            document.getElementById('userModal').classList.add('hidden');
-        }
-
-        async function handleSaveUser(event) {
-            event.preventDefault();
-            const dbId = document.getElementById('modalUserDbId').value;
-            const code_badge = document.getElementById('modalUserCode').value;
-            const name = document.getElementById('modalUserName').value;
-            const email = document.getElementById('modalUserEmail').value;
-            const role = document.getElementById('modalUserRole').value;
-
-            if (dbId) {
-                const idx = appState.users.findIndex(u => u.id == dbId);
-                if (idx !== -1) {
-                    appState.users[idx] = { ...appState.users[idx], code_badge, name, email, role };
-                    if (appState.useSupabase && supabaseClient) {
-                        await supabaseClient.from('users').update({ code_badge, name, email, role }).eq('id', dbId);
+                tbody.appendChild(tr);
+                setTimeout(() => {
+                    const el = document.getElementById(`mini-qr-${u.user_code}`);
+                    if (el && el.children.length === 0) {
+                        new QRCode(el, { text: `USER-TOKEN:${u.user_code}`, width: 40, height: 40 });
                     }
-                }
-            } else {
-                const newUser = { id: Date.now(), code_badge, name, email, role };
-                appState.users.push(newUser);
-                if (appState.useSupabase && supabaseClient) {
-                    await supabaseClient.from('users').insert([newUser]);
-                }
-            }
+                }, 50);
+            });
+        }
 
-            await appState.save();
+        function filterUsers() { renderAdminUsers(document.getElementById('user-search').value); }
+        function openAddUserModal() {
+            document.getElementById('modal-user-id').value = '';
+            document.getElementById('modal-user-code').value = 'USER-' + Math.floor(1000 + Math.random() * 9000);
+            document.getElementById('modal-user-name').value = '';
+            document.getElementById('user-modal').classList.remove('hidden');
+        }
+        function closeUserModal() { document.getElementById('user-modal').classList.add('hidden'); }
+
+        async function saveUser() {
+            const code = document.getElementById('modal-user-code').value.trim().toUpperCase();
+            const name = document.getElementById('modal-user-name').value.trim();
+            const role = document.getElementById('modal-user-role').value;
+            if (!code || !name) { alert("Veuillez remplir tous les champs."); return; }
+
+            const newUser = { id: 'u-' + Date.now(), user_code: code, full_name: name, role: role };
+            if (isSupabaseConfigured) {
+                try { await supabaseClient.from('profiles').insert([newUser]); } catch(e){}
+            }
+            localData.users.push(newUser);
             closeUserModal();
-            renderAdminUsersTable();
-            showToast("Utilisateur enregistré dans Supabase !");
+            renderAdminUsers();
+            alert("Utilisateur ajouté avec succès !");
         }
 
-        async function deleteUser(userId) {
-            appState.users = appState.users.filter(u => u.id != userId);
-            await appState.save();
-            if (appState.useSupabase && supabaseClient) {
-                await supabaseClient.from('users').delete().eq('id', userId);
+        async function deleteUser(id) {
+            if (confirm("Voulez-vous vraiment supprimer cet utilisateur ?")) {
+                localData.users = localData.users.filter(u => u.id !== id);
+                if (isSupabaseConfigured) {
+                    try { await supabaseClient.from('profiles').delete().eq('id', id); } catch(e){}
+                }
+                renderAdminUsers();
             }
-            renderAdminUsersTable();
-            showToast("Utilisateur supprimé", "info");
-        }
-
-        function editUser(userId) {
-            openUserModal(userId);
         }
 
         function exportUsersExcel() {
-            let csvContent = "data:text/csv;charset=utf-8,ID,Code Badge,Nom,Email,Role\n";
-            appState.users.forEach(u => {
-                csvContent += `${u.id},${u.code_badge || ''},"${u.name}","${u.email || ''}",${u.role || ''}\n`;
-            });
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "canteen_users_supabase.csv");
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            showToast("Export Excel/CSV réussi !");
+            const ws = XLSX.utils.json_to_sheet(localData.users);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Utilisateurs");
+            XLSX.writeFile(wb, "Liste_Utilisateurs_ESSTS.xlsx");
         }
 
-        function exportUsersPDF() {
-            window.print();
+        async function exportUsersPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.setFontSize(16);
+            doc.text("ESSTS - Liste des Utilisateurs Cantine", 14, 20);
+            const tableData = localData.users.map(u => [u.user_code, u.full_name, u.role.toUpperCase()]);
+            doc.autoTable({ startY: 28, head: [['Code', 'Nom Complet', 'Rôle']], body: tableData });
+            doc.save("Liste_Utilisateurs_ESSTS.pdf");
         }
 
-        function downloadAllBadges() {
-            window.print();
+        function downloadSingleBadge(code, name) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ format: [100, 140] });
+            
+            doc.setFillColor(79, 70, 229);
+            doc.rect(0, 0, 100, 35, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(12);
+            doc.text("BADGE CANTINE ESSTS", 50, 15, { align: 'center' });
+            doc.setFontSize(8);
+            doc.text("المدرسة العليا لعلوم الرياضة وتكنولوجياتها", 50, 24, { align: 'center' });
+
+            doc.setTextColor(15, 23, 42);
+            doc.setFontSize(14);
+            doc.text(name, 50, 52, { align: 'center' });
+            doc.setFontSize(10);
+            doc.text(`Code: ${code}`, 50, 62, { align: 'center' });
+
+            const tempDiv = document.createElement('div');
+            new QRCode(tempDiv, { text: `USER-TOKEN:${code}`, width: 120, height: 120 });
+            setTimeout(() => {
+                const canvas = tempDiv.querySelector('canvas');
+                if (canvas) {
+                    doc.addImage(canvas.toDataURL("image/png"), 'PNG', 25, 70, 50, 50);
+                    doc.save(`Badge_ESSTS_${code}.pdf`);
+                }
+            }, 300);
         }
 
-        function importUsersFile(event) {
+        function importUsers(event) {
             const file = event.target.files[0];
             if (!file) return;
             const reader = new FileReader();
             reader.onload = async function(e) {
-                try {
-                    const text = e.target.result;
-                    const lines = text.split('\n');
-                    let count = 0;
-                    for (let i = 1; i < lines.length; i++) {
-                        const cols = lines[i].split(',');
-                        if (cols.length >= 2) {
-                            const code_badge = cols[1] ? cols[1].trim() : 'USER-' + Math.floor(1000 + Math.random() * 9000);
-                            const name = cols[2] ? cols[2].replace(/"/g, '').trim() : cols[0].trim();
-                            if (name) {
-                                const newUser = { id: Date.now() + count, code_badge, name, email: '', role: 'Étudiant / Salarié' };
-                                appState.users.push(newUser);
-                                if (appState.useSupabase && supabaseClient) {
-                                    await supabaseClient.from('users').insert([newUser]);
-                                }
-                                count++;
-                            }
-                        }
-                    }
-                    await appState.save();
-                    renderAdminUsersTable();
-                    showToast(`${count} utilisateurs importés dans Supabase !`);
-                } catch(err) {
-                    showToast("Erreur lors de l'importation", "error");
-                }
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+                rows.forEach(r => {
+                    localData.users.push({
+                        id: 'u-' + Math.random(),
+                        user_code: r.user_code || r.Code || ('USER-' + Math.floor(1000 + Math.random()*9000)),
+                        full_name: r.full_name || r.Nom || 'Utilisateur Importé',
+                        role: r.role || 'user'
+                    });
+                });
+                renderAdminUsers();
+                alert(`${rows.length} utilisateurs importés avec succès !`);
             };
-            reader.readAsText(file);
+            reader.readAsArrayBuffer(file);
         }
 
         function renderAdminMenus() {
-            const day = document.getElementById('adminMenuDaySelect').value;
-            const container = document.getElementById('adminMenusGrid');
-            const menuRecord = appState.menus.find(m => m.day === day) || { breakfast: "", lunch: "", dinner: "" };
+            const container = document.getElementById('admin-menus-list');
+            container.innerHTML = '';
+            if (localData.menus.length === 0) {
+                container.innerHTML = `<p class="text-sm text-slate-400 italic text-center py-6">Aucun menu configuré.</p>`;
+                return;
+            }
+            localData.menus.forEach(m => {
+                const card = document.createElement('div');
+                card.className = "p-4 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center";
+                card.innerHTML = `
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="px-2.5 py-0.5 rounded text-xs font-semibold uppercase bg-indigo-100 text-indigo-800">${m.meal_type}</span>
+                            <span class="text-xs text-slate-500"><i class="fa-solid fa-calendar mr-1"></i> ${m.date}</span>
+                        </div>
+                        <h4 class="font-bold text-slate-900">${m.title}</h4>
+                        <p class="text-xs text-slate-600 mt-1">${m.description}</p>
+                    </div>
+                    <button onclick="deleteMenu('${m.id}')" class="text-rose-500 hover:text-rose-700 p-2"><i class="fa-solid fa-trash"></i></button>
+                `;
+                container.appendChild(card);
+            });
+        }
 
-            const meals = [
-                { key: 'breakfast', label: 'Petit-déjeuner', icon: 'fa-coffee', val: menuRecord.breakfast },
-                { key: 'lunch', label: 'Déjeuner', icon: 'fa-utensils', val: menuRecord.lunch },
-                { key: 'dinner', label: 'Dîner', icon: 'fa-moon', val: menuRecord.dinner }
+        function openAddMenuModal() {
+            document.getElementById('modal-menu-title').value = '';
+            document.getElementById('modal-menu-desc').value = '';
+            document.getElementById('modal-menu-date').value = new Date().toISOString().split('T')[0];
+            document.getElementById('menu-modal').classList.remove('hidden');
+        }
+        function closeMenuModal() { document.getElementById('menu-modal').classList.add('hidden'); }
+
+        async function saveMenu() {
+            const type = document.getElementById('modal-menu-type').value;
+            const title = document.getElementById('modal-menu-title').value.trim();
+            const desc = document.getElementById('modal-menu-desc').value.trim();
+            const date = document.getElementById('modal-menu-date').value;
+            if (!title || !date) { alert("Veuillez remplir le titre et la date."); return; }
+
+            const newM = { id: 'm-' + Date.now(), meal_type: type, title, description: desc, date };
+            if (isSupabaseConfigured) { try { await supabaseClient.from('menus').insert([newM]); } catch(e){} }
+            localData.menus.push(newM);
+            closeMenuModal();
+            renderAdminMenus();
+            alert("Menu enregistré !");
+        }
+
+        async function deleteMenu(id) {
+            localData.menus = localData.menus.filter(m => m.id !== id);
+            if (isSupabaseConfigured) { try { await supabaseClient.from('menus').delete().eq('id', id); } catch(e){} }
+            renderAdminMenus();
+        }
+
+        function renderServiceControls() {
+            const container = document.getElementById('service-controls-container');
+            container.innerHTML = '';
+            const servicesMeta = [
+                { key: 'breakfast', label: 'Petit-déjeuner', icon: 'fa-mug-hot' },
+                { key: 'lunch', label: 'Déjeuner', icon: 'fa-bowl-food' },
+                { key: 'dinner', label: 'Dîner / Repas', icon: 'fa-utensils' }
             ];
 
-            let html = '';
-            meals.forEach(m => {
-                html += `
-                    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-                        <div class="flex items-center space-x-2.5 text-indigo-600 border-b pb-3">
-                            <i class="fa-solid ${m.icon} text-lg"></i>
-                            <h3 class="font-bold text-slate-800">${m.label} (${day})</h3>
+            servicesMeta.forEach(s => {
+                const conf = localData.services[s.key];
+                const card = document.createElement('div');
+                card.className = "p-5 bg-slate-50 border border-slate-200 rounded-xl space-y-4";
+                card.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <h4 class="font-bold text-slate-900 flex items-center gap-2"><i class="fa-solid ${s.icon} text-indigo-600"></i> ${s.label}</h4>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" ${conf.active ? 'checked' : ''} onchange="localData.services['${s.key}'].active = this.checked" class="sr-only peer">
+                            <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                        </label>
+                    </div>
+                    <div class="space-y-2 text-xs">
+                        <div>
+                            <label class="block text-slate-600 font-medium mb-1">Heure de début</label>
+                            <input type="time" value="${conf.start}" onchange="localData.services['${s.key}'].start = this.value" class="w-full border border-slate-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                         </div>
-                        <div class="space-y-3">
-                            <div>
-                                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Description du Plat</label>
-                                <input type="text" id="menu_input_${day}_${m.key}" value="${m.val || ''}" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                            </div>
-                            <button onclick="saveMenu('${day}', '${m.key}')" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 rounded-xl transition text-xs shadow-sm">
-                                Mettre à jour (Supabase)
-                            </button>
+                        <div>
+                            <label class="block text-slate-600 font-medium mb-1">Heure de fin</label>
+                            <input type="time" value="${conf.end}" onchange="localData.services['${s.key}'].end = this.value" class="w-full border border-slate-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                         </div>
                     </div>
                 `;
+                container.appendChild(card);
             });
-            container.innerHTML = html;
         }
 
-        async function saveMenu(day, mealKey) {
-            const val = document.getElementById(`menu_input_${day}_${mealKey}`).value;
-            let menuRec = appState.menus.find(m => m.day === day);
-            if (!menuRec) {
-                menuRec = { day, breakfast: '', lunch: '', dinner: '' };
-                appState.menus.push(menuRec);
-            }
-            menuRec[mealKey] = val;
-            await appState.save();
+        async function validateMealToken(token) {
+            const box = document.getElementById('scan-result-box');
+            box.classList.remove('hidden', 'bg-emerald-50', 'text-emerald-800', 'bg-rose-50', 'text-rose-800');
+            let cleanToken = token.trim();
+            if (cleanToken.startsWith('USER-TOKEN:')) cleanToken = cleanToken.split(':')[1];
 
-            if (appState.useSupabase && supabaseClient) {
-                await supabaseClient.from('menus').upsert(menuRec, { onConflict: 'day' });
-            }
+            const today = new Date().toISOString().split('T')[0];
+            const res = localData.reservations.find(r => (r.qr_token === cleanToken || r.user_code === cleanToken) && r.date === today && r.status === 'reserved');
 
-            showToast(`Menu du ${day} mis à jour dans Supabase !`);
-        }
-
-        function loadSettingsValues() {
-            const s = appState.settings;
-            document.getElementById('show_petit-dejeuner').checked = s.show_petit_dejeuner;
-            document.getElementById('start_petit-dejeuner').value = s.start_petit_dejeuner;
-            document.getElementById('end_petit-dejeuner').value = s.end_petit_dejeuner;
-
-            document.getElementById('show_dejeuner').checked = s.show_dejeuner;
-            document.getElementById('start_dejeuner').value = s.start_dejeuner;
-            document.getElementById('end_dejeuner').value = s.end_dejeuner;
-
-            document.getElementById('show_diner').checked = s.show_diner;
-            document.getElementById('start_diner').value = s.start_diner;
-            document.getElementById('end_diner').value = s.end_diner;
-        }
-
-        async function saveSettings(event) {
-            event.preventDefault();
-            appState.settings = {
-                show_petit_dejeuner: document.getElementById('show_petit-dejeuner').checked,
-                start_petit_dejeuner: document.getElementById('start_petit-dejeuner').value,
-                end_petit_dejeuner: document.getElementById('end_petit-dejeuner').value,
-                show_dejeuner: document.getElementById('show_dejeuner').checked,
-                start_dejeuner: document.getElementById('start_dejeuner').value,
-                end_dejeuner: document.getElementById('end_dejeuner').value,
-                show_diner: document.getElementById('show_diner').checked,
-                start_diner: document.getElementById('start_diner').value,
-                end_diner: document.getElementById('end_diner').value
-            };
-            await appState.save();
-            showToast("Paramètres horaires enregistrés dans Supabase !");
-        }
-
-        function openRefectoireQrModal() {
-            document.getElementById('refectoireModal').classList.remove('hidden');
-            document.getElementById('refectoireQrSvgContainer').innerHTML = generateSvgQr("CANTINE-REFECTOIRE-CENTRAL-CHECKIN", 200);
-        }
-
-        function closeRefectoireQrModal() {
-            document.getElementById('refectoireModal').classList.add('hidden');
-        }
-
-        function downloadRefectoireQR() {
-            showToast("Téléchargement du QR Code du réfectoire initié !");
-        }
-
-        function showToast(message, type = "success") {
-            const toast = document.getElementById('toastNotification');
-            const msgEl = document.getElementById('toastMessage');
-            const iconEl = document.getElementById('toastIcon');
-
-            msgEl.innerText = message;
-            if (type === "error") {
-                iconEl.className = "fa-solid fa-circle-exclamation text-rose-400 text-lg";
-            } else if (type === "info") {
-                iconEl.className = "fa-solid fa-circle-info text-sky-400 text-lg";
+            if (res) {
+                res.status = 'consumed';
+                res.consumed_at = new Date().toISOString();
+                if (isSupabaseConfigured) {
+                    try { await supabaseClient.from('reservations').update({ status: 'consumed', consumed_at: res.consumed_at }).eq('id', res.id); } catch(e){}
+                }
+                box.classList.add('bg-emerald-50', 'text-emerald-800');
+                box.innerHTML = `<i class="fa-solid fa-check-circle mr-1"></i> Repas ESSTS validé avec succès pour l'utilisateur <b>${res.user_code}</b> (${res.meal_type}) !`;
             } else {
-                iconEl.className = "fa-solid fa-circle-check text-emerald-400 text-lg";
+                box.classList.add('bg-rose-50', 'text-rose-800');
+                box.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1"></i> Aucune réservation active ou valide trouvée pour "${cleanToken}" aujourd'hui.`;
             }
-
-            toast.classList.remove('translate-y-24', 'opacity-0');
-            setTimeout(() => {
-                toast.classList.add('translate-y-24', 'opacity-0');
-            }, 3500);
         }
-
-        window.onload = function() {
-            appState.init();
-        };
     </script>
 </body>
 </html>
